@@ -1,0 +1,65 @@
+name: 'Scribe'
+description: 'Convert Markdown documents to PDF, HTML, and preview images for publishing'
+author: 'alDuncanson'
+branding:
+  icon: 'file-text'
+  color: 'blue'
+
+inputs:
+  source:
+    description: 'Source Markdown file'
+    required: false
+    default: 'resume.md'
+  output-pdf:
+    description: 'Output PDF filename'
+    required: false
+    default: 'resume.pdf'
+  output-html:
+    description: 'Output HTML filename'
+    required: false
+    default: 'index.html'
+  output-preview:
+    description: 'Output preview image filename (without extension)'
+    required: false
+    default: 'preview'
+  preview-dpi:
+    description: 'Preview image resolution in DPI'
+    required: false
+    default: '150'
+
+outputs:
+  pdf:
+    description: 'Path to generated PDF file'
+    value: ${{ inputs.output-pdf }}
+  html:
+    description: 'Path to generated HTML file'
+    value: ${{ inputs.output-html }}
+  preview:
+    description: 'Path to generated preview PNG file'
+    value: ${{ inputs.output-preview }}.png
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install pandoc and poppler-utils
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pandoc poppler-utils
+
+    - name: Install tectonic
+      uses: wtfjoke/setup-tectonic@v3
+      with:
+        github-token: ${{ github.token }}
+
+    - name: Generate PDF
+      shell: bash
+      run: pandoc "${{ inputs.source }}" -o "${{ inputs.output-pdf }}" --pdf-engine tectonic
+
+    - name: Generate HTML
+      shell: bash
+      run: pandoc -s "${{ inputs.source }}" -o "${{ inputs.output-html }}"
+
+    - name: Generate preview image
+      shell: bash
+      run: pdftoppm "${{ inputs.output-pdf }}" "${{ inputs.output-preview }}" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}
