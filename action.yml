@@ -1,5 +1,5 @@
 name: 'md-press'
-description: 'Convert Markdown documents to PDF, HTML, and preview images for publishing to GitHub Pages'
+description: 'A Markdown document publisher that turns your writing into free, hosted web pages, downloadable PDFs, and shareable preview images'
 author: 'alDuncanson'
 branding:
   icon: 'file-text'
