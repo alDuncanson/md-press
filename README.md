@@ -1,16 +1,16 @@
-# Scribe
+# `md-press`
 
-[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Scribe-blue?logo=github)](https://github.com/marketplace/actions/scribe)
-[![GitHub release](https://img.shields.io/github/v/release/alDuncanson/scribe)](https://github.com/alDuncanson/scribe/releases)
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-md--press-blue?logo=github)](https://github.com/marketplace/actions/md-press)
+[![GitHub release](https://img.shields.io/github/v/release/alDuncanson/md-press)](https://github.com/alDuncanson/md-press/releases)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-Scribe is a Markdown document processor that turns your writing into free, hosted web pages, downloadable PDFs, and shareable preview images — all powered by GitHub Actions and GitHub Pages.
+`md-press` is a Markdown document processor that turns your writing into free, hosted web pages, downloadable PDFs, and shareable preview images — all powered by GitHub Actions and GitHub Pages.
 
 Write in Markdown. Push to GitHub. Get a published document.
 
-## Why Scribe
+## Why `md-press`
 
-Publishing a document online usually means choosing between clunky website builders, expensive hosting, or complex static site generators. Scribe takes a different approach: you write Markdown, and GitHub handles the rest.
+Publishing a document online usually means choosing between clunky website builders, expensive hosting, or complex static site generators. `md-press` takes a different approach: you write Markdown, and GitHub handles the rest.
 
 This makes it ideal for:
 
@@ -20,7 +20,7 @@ This makes it ideal for:
 - **Homework and academic papers** — generate properly formatted PDFs from plain text
 - **Documentation** — create standalone reference documents
 
-See the [resume template](https://github.com/alDuncanson/resume) for the project that inspired Scribe.
+See the [resume template](https://github.com/alDuncanson/resume) for the project that inspired `md-press`.
 
 ## Features
 
@@ -53,17 +53,17 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.scribe.outputs.page_url }}
+      url: ${{ steps.md-press.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: alDuncanson/scribe@v1
-        id: scribe
+      - uses: alDuncanson/md-press@v1
+        id: md-press
         with:
           source: resume.md
 ```
 
-That's it. Scribe handles the artifact upload and GitHub Pages deployment automatically.
+That's it. `md-press` handles the artifact upload and GitHub Pages deployment automatically.
 
 ## Inputs
 
