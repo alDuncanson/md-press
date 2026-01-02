@@ -1,12 +1,13 @@
 # `md-press`
 
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-md--press-blue?logo=github)](https://github.com/marketplace/actions/md-press)
-[![GitHub release](https://img.shields.io/github/v/release/alDuncanson/md-press)](https://github.com/alDuncanson/md-press/releases)
+[![Latest Release](https://img.shields.io/github/v/release/alDuncanson/md-press)](https://github.com/alDuncanson/md-press/releases)
+[![Release Workflow](https://github.com/alDuncanson/md-press/actions/workflows/release.yml/badge.svg)](https://github.com/alDuncanson/md-press/actions/workflows/release.yml)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-`md-press` is a Markdown document processor that turns your writing into free, hosted web pages, downloadable PDFs, and shareable preview images — all powered by GitHub Actions and GitHub Pages.
+`md-press` is a Markdown document publisher that turns your writing into free, hosted web pages, downloadable PDFs, and shareable preview images — all powered by GitHub Actions and GitHub Pages.
 
-Write in Markdown. Push to GitHub. Get a published document.
+Write in Markdown. Push to GitHub. Get a published document — free.
 
 ## Why `md-press`
 
