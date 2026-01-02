@@ -1,5 +1,5 @@
 name: 'md-press'
-description: 'A Markdown document publisher that turns your writing into free, hosted web pages, downloadable PDFs, and shareable preview images'
+description: 'Free markdown publishing'
 author: 'alDuncanson'
 branding:
   icon: 'file-text'
