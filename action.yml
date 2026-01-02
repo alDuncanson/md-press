@@ -1,5 +1,5 @@
 name: 'Scribe'
-description: 'Convert Markdown documents to PDF, HTML, and preview images for publishing'
+description: 'Convert Markdown documents to PDF, HTML, and preview images for publishing to GitHub Pages'
 author: 'alDuncanson'
 branding:
   icon: 'file-text'
@@ -26,6 +26,10 @@ inputs:
     description: 'Preview image resolution in DPI'
     required: false
     default: '150'
+  deploy:
+    description: 'Whether to deploy to GitHub Pages (set to false to only generate files)'
+    required: false
+    default: 'true'
 
 outputs:
   pdf:
@@ -37,6 +41,9 @@ outputs:
   preview:
     description: 'Path to generated preview PNG file'
     value: ${{ inputs.output-preview }}.png
+  page_url:
+    description: 'URL of the deployed GitHub Pages site'
+    value: ${{ steps.deploy.outputs.page_url }}
 
 runs:
   using: 'composite'
@@ -52,14 +59,29 @@ runs:
       with:
         github-token: ${{ github.token }}
 
+    - name: Create output directory
+      shell: bash
+      run: mkdir -p _site
+
     - name: Generate PDF
       shell: bash
-      run: pandoc "${{ inputs.source }}" -o "${{ inputs.output-pdf }}" --pdf-engine tectonic
+      run: pandoc "${{ inputs.source }}" -o "_site/${{ inputs.output-pdf }}" --pdf-engine tectonic
 
     - name: Generate HTML
       shell: bash
-      run: pandoc -s "${{ inputs.source }}" -o "${{ inputs.output-html }}"
+      run: pandoc -s "${{ inputs.source }}" -o "_site/${{ inputs.output-html }}"
 
     - name: Generate preview image
       shell: bash
-      run: pdftoppm "${{ inputs.output-pdf }}" "${{ inputs.output-preview }}" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}
+      run: pdftoppm "_site/${{ inputs.output-pdf }}" "_site/${{ inputs.output-preview }}" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}
+
+    - name: Upload Pages artifact
+      if: ${{ inputs.deploy == 'true' }}
+      uses: actions/upload-pages-artifact@v4
+      with:
+        path: _site
+
+    - name: Deploy to GitHub Pages
+      if: ${{ inputs.deploy == 'true' }}
+      id: deploy
+      uses: actions/deploy-pages@v4

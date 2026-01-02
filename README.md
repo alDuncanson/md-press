@@ -1,21 +1,16 @@
 # Scribe
 
-A GitHub Action that converts Markdown documents to PDF, HTML, and preview images for publishing. Use it to host resumes, blogs, poems, or any Markdown content.
+A GitHub Action that converts Markdown documents to PDF, HTML, and preview images, then automatically deploys them to GitHub Pages.
 
 ## Features
 
 - Converts Markdown to PDF using pandoc and tectonic (LaTeX)
 - Generates standalone HTML pages
 - Creates preview PNG images from the PDF
+- **Automatically deploys to GitHub Pages** — no extra configuration needed
 - Supports YAML frontmatter for PDF styling (margins, fonts, etc.)
 
 ## Usage
-
-```yaml
-- uses: alDuncanson/scribe@v1
-```
-
-### Full Example with GitHub Pages
 
 ```yaml
 name: Publish Document
@@ -30,31 +25,21 @@ permissions:
   id-token: write
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.scribe.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: alDuncanson/scribe@v1
+        id: scribe
         with:
           source: resume.md
-
-      - uses: actions/configure-pages@v4
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
 ```
+
+That's it! Scribe handles the artifact upload and GitHub Pages deployment automatically.
 
 ## Inputs
 
@@ -65,6 +50,7 @@ jobs:
 | `output-html` | Output HTML filename | `index.html` |
 | `output-preview` | Output preview image filename (without extension) | `preview` |
 | `preview-dpi` | Preview image resolution in DPI | `150` |
+| `deploy` | Whether to deploy to GitHub Pages | `true` |
 
 ## Outputs
 
@@ -73,6 +59,18 @@ jobs:
 | `pdf` | Path to generated PDF file |
 | `html` | Path to generated HTML file |
 | `preview` | Path to generated preview PNG file |
+| `page_url` | URL of the deployed GitHub Pages site |
+
+## Build Only (No Deploy)
+
+If you want to generate files without deploying:
+
+```yaml
+- uses: alDuncanson/scribe@v1
+  with:
+    source: document.md
+    deploy: 'false'
+```
 
 ## Markdown Frontmatter
 
@@ -90,4 +88,6 @@ header-includes: |
 Content here...
 ```
 
+## Requirements
 
+Your repository must have GitHub Pages enabled with "GitHub Actions" as the source (Settings → Pages → Source → GitHub Actions).
