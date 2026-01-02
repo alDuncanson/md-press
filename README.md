@@ -90,6 +90,4 @@ header-includes: |
 Content here...
 ```
 
-## License
 
-MIT
