@@ -99,7 +99,11 @@ runs:
     - name: Generate PDF (single-file mode)
       if: ${{ inputs.sources == '' }}
       shell: bash
-      run: pandoc "${{ inputs.source }}" -o "_site/${{ inputs.output-pdf }}" --pdf-engine tectonic
+      run: |
+        pandoc "${{ inputs.source }}" \
+          -o "_site/${{ inputs.output-pdf }}" \
+          --pdf-engine tectonic \
+          --lua-filter="${{ github.action_path }}/filters/mdlinks-to-anchors.lua"
 
     - name: Generate PDF (multi-file mode)
       if: ${{ inputs.sources != '' }}
@@ -107,9 +111,22 @@ runs:
       run: |
         set -euo pipefail
         mapfile -t FILES < /tmp/mdpress_files.txt
-        pandoc "${FILES[@]}" \
+
+        # Combine files with page breaks between them
+        COMBINED=/tmp/mdpress_combined.md
+        : > "$COMBINED"
+
+        for i in "${!FILES[@]}"; do
+          if [ "$i" -gt 0 ]; then
+            printf '\n\\newpage\n\n' >> "$COMBINED"
+          fi
+          cat "${FILES[$i]}" >> "$COMBINED"
+        done
+
+        pandoc "$COMBINED" \
           -o "_site/${{ inputs.output-pdf }}" \
-          --pdf-engine tectonic
+          --pdf-engine tectonic \
+          --lua-filter="${{ github.action_path }}/filters/mdlinks-to-anchors.lua"
 
     - name: Generate HTML with OpenGraph meta tags (single-file mode)
       if: ${{ inputs.sources == '' }}
