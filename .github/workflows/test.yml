@@ -59,47 +59,15 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
+            const artifactUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             
-            // Read the preview image and convert to base64
-            const imagePath = '_site/preview.png';
-            const imageBuffer = fs.readFileSync(imagePath);
-            const base64Image = imageBuffer.toString('base64');
-            
-            // Upload image to GitHub (creates a URL we can use in comments)
-            const { data: uploadedImage } = await github.request('POST /repos/{owner}/{repo}/issues/{issue_number}/comments', {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `![preview](data:image/png;base64,${base64Image})`
-            });
-            
-            // Delete the temp comment and post the real one
-            await github.rest.issues.deleteComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: uploadedImage.id
-            });
-            
-            // Get the image URL from the deleted comment (GitHub keeps the uploaded image)
-            const imageUrlMatch = uploadedImage.body.match(/!\[preview\]\((https:\/\/[^)]+)\)/);
-            const imageUrl = imageUrlMatch ? imageUrlMatch[1] : null;
-            
-            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            
-            let body = `## 🧪 Test Build Preview\n\n`;
+            let body = `## Test Build Preview\n\n`;
             body += `Generated from \`${context.payload.pull_request.head.sha.substring(0, 7)}\`\n\n`;
-            
-            if (imageUrl) {
-              body += `### Preview\n\n`;
-              body += `![Document Preview](${imageUrl})\n\n`;
-            }
-            
             body += `### Artifacts\n\n`;
-            body += `Download the generated files from the [workflow run](${runUrl}):\n`;
-            body += `- 📄 **resume.pdf**\n`;
-            body += `- 🌐 **index.html**\n`;
-            body += `- 🖼️ **preview.png**\n`;
+            body += `Download the generated files from the [workflow run](${artifactUrl}):\n`;
+            body += `- **resume.pdf**\n`;
+            body += `- **index.html**\n`;
+            body += `- **preview.png**\n`;
             
             await github.rest.issues.createComment({
               owner: context.repo.owner,
