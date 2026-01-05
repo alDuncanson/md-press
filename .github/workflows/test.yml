@@ -102,17 +102,20 @@ jobs:
         with:
           sources: 'docs/**/*.md'
           output-pdf: docs.pdf
+          mode: 'combined'
+          index-title: 'Documentation'
           deploy: 'false'
 
-      - name: Verify multi-file output
+      - name: Verify multi-file combined output
         run: |
           echo "Checking generated files..."
           ls -la _site/
           ls -la _site/docs/ || true
           ls -la _site/docs/guides/ || true
 
-          # Verify index was generated
+          # Verify index was generated with custom title
           test -f _site/index.html || (echo "Missing index.html" && exit 1)
+          grep -q 'Documentation' _site/index.html || (echo "Missing custom index title" && exit 1)
 
           # Verify HTML files preserve directory structure
           test -f _site/docs/index.html || (echo "Missing docs/index.html" && exit 1)
@@ -122,7 +125,7 @@ jobs:
           # Verify combined PDF
           test -f _site/docs.pdf || (echo "Missing docs.pdf" && exit 1)
 
-          # Verify preview image
+          # Verify single preview image for combined PDF
           test -f _site/preview.png || (echo "Missing preview.png" && exit 1)
 
           # Verify .md links were rewritten to .html
@@ -130,16 +133,174 @@ jobs:
             echo "ERROR: Found .md links in HTML output"
             exit 1
           fi
-          echo "All checks passed!"
+
+          # Verify md-press link in index
+          grep -q 'md-press' _site/index.html || (echo "Missing md-press attribution link" && exit 1)
+
+          echo "All combined mode checks passed!"
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: test-output-multi
+          name: test-output-combined
+          path: _site/
+
+  test-collection-flat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create flat collection of unrelated documents
+        run: |
+          cat > resume.md << 'EOF'
+          # John Doe - Resume
+
+          ## Experience
+          - Software Engineer at Acme Corp
+          - Junior Developer at StartupXYZ
+
+          ## Education
+          - BS Computer Science
+          EOF
+
+          cat > cover-letter.md << 'EOF'
+          # Cover Letter
+
+          Dear Hiring Manager,
+
+          I am writing to express my interest...
+
+          Sincerely,
+          John Doe
+          EOF
+
+          cat > references.md << 'EOF'
+          # Professional References
+
+          1. Jane Smith - Manager at Acme Corp
+          2. Bob Johnson - CTO at StartupXYZ
+          EOF
+
+      - uses: ./
+        with:
+          sources: '*.md'
+          mode: 'collection'
+          index-title: 'My Documents'
+          deploy: 'false'
+
+      - name: Verify collection flat output
+        run: |
+          echo "Checking generated files..."
+          ls -la _site/
+
+          # Verify index page
+          test -f _site/index.html || (echo "Missing index.html" && exit 1)
+          grep -q 'My Documents' _site/index.html || (echo "Missing custom index title" && exit 1)
+
+          # Verify individual HTML files
+          test -f _site/resume.html || (echo "Missing resume.html" && exit 1)
+          test -f _site/cover-letter.html || (echo "Missing cover-letter.html" && exit 1)
+          test -f _site/references.html || (echo "Missing references.html" && exit 1)
+
+          # Verify individual PDFs
+          test -f _site/resume.pdf || (echo "Missing resume.pdf" && exit 1)
+          test -f _site/cover-letter.pdf || (echo "Missing cover-letter.pdf" && exit 1)
+          test -f _site/references.pdf || (echo "Missing references.pdf" && exit 1)
+
+          # Verify individual preview images
+          test -f _site/resume-preview.png || (echo "Missing resume-preview.png" && exit 1)
+          test -f _site/cover-letter-preview.png || (echo "Missing cover-letter-preview.png" && exit 1)
+          test -f _site/references-preview.png || (echo "Missing references-preview.png" && exit 1)
+
+          # Verify index links to PDFs
+          grep -q 'resume.pdf' _site/index.html || (echo "Missing PDF link in index" && exit 1)
+
+          echo "All collection flat mode checks passed!"
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-collection-flat
+          path: _site/
+
+  test-collection-nested:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create nested collection of documents
+        run: |
+          mkdir -p projects/web projects/mobile
+
+          cat > projects/web/portfolio.md << 'EOF'
+          # Web Portfolio
+
+          ## Projects
+          - E-commerce site
+          - Blog platform
+          EOF
+
+          cat > projects/web/case-study.md << 'EOF'
+          # Case Study: E-commerce Redesign
+
+          ## Challenge
+          The client needed a modern redesign...
+
+          ## Solution
+          We implemented a new design system...
+          EOF
+
+          cat > projects/mobile/app-showcase.md << 'EOF'
+          # Mobile App Showcase
+
+          ## iOS Apps
+          - Fitness Tracker
+          - Recipe Manager
+          EOF
+
+      - uses: ./
+        with:
+          sources: 'projects/**/*.md'
+          mode: 'collection'
+          index-title: 'Project Portfolio'
+          deploy: 'false'
+
+      - name: Verify collection nested output
+        run: |
+          echo "Checking generated files..."
+          ls -la _site/
+          ls -la _site/projects/web/ || true
+          ls -la _site/projects/mobile/ || true
+
+          # Verify index page
+          test -f _site/index.html || (echo "Missing index.html" && exit 1)
+          grep -q 'Project Portfolio' _site/index.html || (echo "Missing custom index title" && exit 1)
+
+          # Verify nested HTML files
+          test -f _site/projects/web/portfolio.html || (echo "Missing portfolio.html" && exit 1)
+          test -f _site/projects/web/case-study.html || (echo "Missing case-study.html" && exit 1)
+          test -f _site/projects/mobile/app-showcase.html || (echo "Missing app-showcase.html" && exit 1)
+
+          # Verify nested PDFs
+          test -f _site/projects/web/portfolio.pdf || (echo "Missing portfolio.pdf" && exit 1)
+          test -f _site/projects/web/case-study.pdf || (echo "Missing case-study.pdf" && exit 1)
+          test -f _site/projects/mobile/app-showcase.pdf || (echo "Missing app-showcase.pdf" && exit 1)
+
+          # Verify nested preview images
+          test -f _site/projects/web/portfolio-preview.png || (echo "Missing portfolio-preview.png" && exit 1)
+          test -f _site/projects/web/case-study-preview.png || (echo "Missing case-study-preview.png" && exit 1)
+          test -f _site/projects/mobile/app-showcase-preview.png || (echo "Missing app-showcase-preview.png" && exit 1)
+
+          echo "All collection nested mode checks passed!"
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-collection-nested
           path: _site/
 
   comment-on-pr:
-    needs: [test-single-file, test-multi-file]
+    needs: [test-single-file, test-multi-file, test-collection-flat, test-collection-nested]
     runs-on: ubuntu-latest
     steps:
       - name: Comment on PR with preview
@@ -156,13 +317,19 @@ jobs:
             body += `- resume.pdf\n`;
             body += `- index.html\n`;
             body += `- preview.png\n\n`;
-            body += `**Multi-file mode (test-output-multi):**\n`;
+            body += `**Combined mode (test-output-combined):**\n`;
             body += `- docs.pdf (combined)\n`;
-            body += `- index.html (auto-generated TOC)\n`;
-            body += `- docs/index.html\n`;
-            body += `- docs/guides/getting-started.html\n`;
-            body += `- docs/guides/advanced.html\n`;
-            body += `- preview.png\n`;
+            body += `- index.html (auto-generated index)\n`;
+            body += `- docs/*.html (individual pages)\n`;
+            body += `- preview.png\n\n`;
+            body += `**Collection mode - flat (test-output-collection-flat):**\n`;
+            body += `- resume.pdf, cover-letter.pdf, references.pdf\n`;
+            body += `- resume.html, cover-letter.html, references.html\n`;
+            body += `- *-preview.png (one per document)\n\n`;
+            body += `**Collection mode - nested (test-output-collection-nested):**\n`;
+            body += `- projects/web/*.pdf, projects/mobile/*.pdf\n`;
+            body += `- projects/web/*.html, projects/mobile/*.html\n`;
+            body += `- *-preview.png (one per document)\n`;
             
             await github.rest.issues.createComment({
               owner: context.repo.owner,
