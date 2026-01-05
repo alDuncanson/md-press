@@ -1,0 +1,77 @@
+name: Test Action
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create test markdown
+        run: |
+          cat > test.md << 'EOF'
+          ---
+          geometry: margin=0.75in
+          header-includes: |
+            \pagenumbering{gobble}
+          ---
+
+          # Test Document
+
+          This is a test document generated from branch `${{ github.head_ref }}` on PR #${{ github.event.pull_request.number }}.
+
+          ## Features Being Tested
+
+          - PDF generation with pandoc + tectonic
+          - HTML generation with OpenGraph meta tags
+          - Preview image generation
+
+          ## Sample Content
+
+          Here's some **bold text**, *italic text*, and `inline code`.
+
+          > A blockquote to test formatting.
+
+          - Bullet point one
+          - Bullet point two
+          - Bullet point three
+          EOF
+
+      - uses: ./
+        id: test
+        with:
+          source: test.md
+          deploy: 'false'
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: _site/
+
+      - name: Comment on PR with preview
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifactUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            
+            let body = `## Test Build Preview\n\n`;
+            body += `Generated from \`${context.payload.pull_request.head.sha.substring(0, 7)}\`\n\n`;
+            body += `### Artifacts\n\n`;
+            body += `Download the generated files from the [workflow run](${artifactUrl}):\n`;
+            body += `- **resume.pdf**\n`;
+            body += `- **index.html**\n`;
+            body += `- **preview.png**\n`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
