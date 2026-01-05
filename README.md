@@ -70,7 +70,8 @@ That's it. `md-press` handles the artifact upload and GitHub Pages deployment au
 
 | Input | Description | Default |
 |-------|-------------|---------|
-| `source` | Source Markdown file | `resume.md` |
+| `source` | Source Markdown file (single-file mode) | `resume.md` |
+| `sources` | Space/newline separated list of Markdown files or glob patterns (multi-file mode) | `''` |
 | `output-pdf` | Output PDF filename | `resume.pdf` |
 | `output-html` | Output HTML filename | `index.html` |
 | `output-preview` | Output preview image filename (without extension) | `preview` |
@@ -85,6 +86,26 @@ That's it. `md-press` handles the artifact upload and GitHub Pages deployment au
 | `html` | Path to generated HTML file |
 | `preview` | Path to generated preview PNG file |
 | `page_url` | URL of the deployed GitHub Pages site |
+
+## Multi-file Mode
+
+For publishing multiple documents as a static site, use the `sources` input with glob patterns:
+
+```yaml
+- uses: alDuncanson/md-press@v1
+  with:
+    sources: |
+      docs/**/*.md
+      pages/*.md
+    output-pdf: docs.pdf
+```
+
+In multi-file mode:
+
+- All matched `.md` files are converted to HTML, preserving directory structure
+- A combined PDF is generated containing all documents
+- An index page with table of contents is auto-generated at the root
+- Relative links between Markdown files (`[link](other.md)`) are automatically rewritten to `.html`
 
 ## Markdown Frontmatter
 

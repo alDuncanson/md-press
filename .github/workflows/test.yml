@@ -8,7 +8,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  test:
+  test-single-file:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,9 +52,96 @@ jobs:
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: test-output
+          name: test-output-single
           path: _site/
 
+  test-multi-file:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create test markdown files
+        run: |
+          mkdir -p docs/guides
+
+          cat > docs/index.md << 'EOF'
+          # Documentation Home
+
+          Welcome to the docs. See [Getting Started](guides/getting-started.md) or [Advanced Usage](guides/advanced.md).
+          EOF
+
+          cat > docs/guides/getting-started.md << 'EOF'
+          # Getting Started
+
+          This guide covers the basics. For more, see [Advanced Usage](advanced.md) or return to the [Home](../index.md).
+
+          ## Installation
+
+          1. Step one
+          2. Step two
+          3. Step three
+          EOF
+
+          cat > docs/guides/advanced.md << 'EOF'
+          # Advanced Usage
+
+          Building on the [Getting Started](getting-started.md) guide.
+
+          ## Configuration
+
+          Configure options as needed.
+
+          ## Tips
+
+          - Tip one
+          - Tip two
+          EOF
+
+      - uses: ./
+        id: test-multi
+        with:
+          sources: 'docs/**/*.md'
+          output-pdf: docs.pdf
+          deploy: 'false'
+
+      - name: Verify multi-file output
+        run: |
+          echo "Checking generated files..."
+          ls -la _site/
+          ls -la _site/docs/ || true
+          ls -la _site/docs/guides/ || true
+
+          # Verify index was generated
+          test -f _site/index.html || (echo "Missing index.html" && exit 1)
+
+          # Verify HTML files preserve directory structure
+          test -f _site/docs/index.html || (echo "Missing docs/index.html" && exit 1)
+          test -f _site/docs/guides/getting-started.html || (echo "Missing getting-started.html" && exit 1)
+          test -f _site/docs/guides/advanced.html || (echo "Missing advanced.html" && exit 1)
+
+          # Verify combined PDF
+          test -f _site/docs.pdf || (echo "Missing docs.pdf" && exit 1)
+
+          # Verify preview image
+          test -f _site/preview.png || (echo "Missing preview.png" && exit 1)
+
+          # Verify .md links were rewritten to .html
+          if grep -q '\.md"' _site/docs/index.html; then
+            echo "ERROR: Found .md links in HTML output"
+            exit 1
+          fi
+          echo "All checks passed!"
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-multi
+          path: _site/
+
+  comment-on-pr:
+    needs: [test-single-file, test-multi-file]
+    runs-on: ubuntu-latest
+    steps:
       - name: Comment on PR with preview
         uses: actions/github-script@v7
         with:
@@ -64,10 +151,18 @@ jobs:
             let body = `## Test Build Preview\n\n`;
             body += `Generated from \`${context.payload.pull_request.head.sha.substring(0, 7)}\`\n\n`;
             body += `### Artifacts\n\n`;
-            body += `Download the generated files from the [workflow run](${artifactUrl}):\n`;
-            body += `- **resume.pdf**\n`;
-            body += `- **index.html**\n`;
-            body += `- **preview.png**\n`;
+            body += `Download the generated files from the [workflow run](${artifactUrl}):\n\n`;
+            body += `**Single-file mode (test-output-single):**\n`;
+            body += `- resume.pdf\n`;
+            body += `- index.html\n`;
+            body += `- preview.png\n\n`;
+            body += `**Multi-file mode (test-output-multi):**\n`;
+            body += `- docs.pdf (combined)\n`;
+            body += `- index.html (auto-generated TOC)\n`;
+            body += `- docs/index.html\n`;
+            body += `- docs/guides/getting-started.html\n`;
+            body += `- docs/guides/advanced.html\n`;
+            body += `- preview.png\n`;
             
             await github.rest.issues.createComment({
               owner: context.repo.owner,

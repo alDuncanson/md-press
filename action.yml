@@ -7,9 +7,13 @@ branding:
 
 inputs:
   source:
-    description: 'Source Markdown file'
+    description: 'Source Markdown file (single-file mode)'
     required: false
     default: 'resume.md'
+  sources:
+    description: 'Space or newline separated list of Markdown files or glob patterns (multi-file mode)'
+    required: false
+    default: ''
   output-pdf:
     description: 'Output PDF filename'
     required: false
@@ -63,38 +67,143 @@ runs:
       shell: bash
       run: mkdir -p _site
 
-    - name: Generate PDF
+    - name: Resolve source files (multi-file mode)
+      if: ${{ inputs.sources != '' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        shopt -s globstar nullglob
+
+        SOURCES_STR="${{ inputs.sources }}"
+        FILES=()
+
+        for pattern in $SOURCES_STR; do
+          for f in $pattern; do
+            [ -f "$f" ] || continue
+            FILES+=("$f")
+          done
+        done
+
+        if [ ${#FILES[@]} -eq 0 ]; then
+          echo "::error::No source files matched patterns: $SOURCES_STR"
+          exit 1
+        fi
+
+        IFS=$'\n' FILES=($(printf '%s\n' "${FILES[@]}" | sort -u))
+        unset IFS
+
+        printf '%s\n' "${FILES[@]}" > /tmp/mdpress_files.txt
+        echo "Found ${#FILES[@]} source file(s):"
+        cat /tmp/mdpress_files.txt
+
+    - name: Generate PDF (single-file mode)
+      if: ${{ inputs.sources == '' }}
       shell: bash
       run: pandoc "${{ inputs.source }}" -o "_site/${{ inputs.output-pdf }}" --pdf-engine tectonic
 
-    - name: Generate HTML with OpenGraph meta tags
+    - name: Generate PDF (multi-file mode)
+      if: ${{ inputs.sources != '' }}
       shell: bash
       run: |
-        # Get the repository name for the title fallback
+        set -euo pipefail
+        mapfile -t FILES < /tmp/mdpress_files.txt
+        pandoc "${FILES[@]}" \
+          -o "_site/${{ inputs.output-pdf }}" \
+          --pdf-engine tectonic
+
+    - name: Generate HTML with OpenGraph meta tags (single-file mode)
+      if: ${{ inputs.sources == '' }}
+      shell: bash
+      run: |
         REPO_NAME="${{ github.event.repository.name }}"
-        
-        # Build the base URL for GitHub Pages
+
         if [ "${{ github.repository_owner }}" = "${{ github.event.repository.name }}" ]; then
           BASE_URL="https://${{ github.repository_owner }}.github.io"
         else
           BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
         fi
-        
+
         PREVIEW_URL="${BASE_URL}/${{ inputs.output-preview }}.png"
         PAGE_URL="${BASE_URL}/"
-        
-        # Create a header file with OpenGraph meta tags
+
         cat > /tmp/og-header.html << 'HEADER_EOF'
         <meta property="og:type" content="website">
         HEADER_EOF
-        
+
         echo "<meta property=\"og:image\" content=\"${PREVIEW_URL}\">" >> /tmp/og-header.html
         echo "<meta property=\"og:url\" content=\"${PAGE_URL}\">" >> /tmp/og-header.html
         echo "<meta name=\"twitter:card\" content=\"summary_large_image\">" >> /tmp/og-header.html
         echo "<meta name=\"twitter:image\" content=\"${PREVIEW_URL}\">" >> /tmp/og-header.html
-        
-        # Generate HTML with the OpenGraph headers
+
         pandoc -s "${{ inputs.source }}" -o "_site/${{ inputs.output-html }}" \
+          --include-in-header=/tmp/og-header.html \
+          --lua-filter="${{ github.action_path }}/filters/mdlinks-to-html.lua"
+
+    - name: Generate HTML pages (multi-file mode)
+      if: ${{ inputs.sources != '' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        REPO_NAME="${{ github.event.repository.name }}"
+        if [ "${{ github.repository_owner }}" = "${{ github.event.repository.name }}" ]; then
+          BASE_URL="https://${{ github.repository_owner }}.github.io"
+        else
+          BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+        fi
+
+        PREVIEW_URL="${BASE_URL}/${{ inputs.output-preview }}.png"
+        PAGE_URL="${BASE_URL}/"
+
+        cat > /tmp/og-header.html << 'HEADER_EOF'
+        <meta property="og:type" content="website">
+        HEADER_EOF
+
+        echo "<meta property=\"og:image\" content=\"${PREVIEW_URL}\">" >> /tmp/og-header.html
+        echo "<meta property=\"og:url\" content=\"${PAGE_URL}\">" >> /tmp/og-header.html
+        echo "<meta name=\"twitter:card\" content=\"summary_large_image\">" >> /tmp/og-header.html
+        echo "<meta name=\"twitter:image\" content=\"${PREVIEW_URL}\">" >> /tmp/og-header.html
+
+        while IFS= read -r SRC; do
+          REL="${SRC#./}"
+          DEST="_site/${REL%.md}.html"
+          mkdir -p "$(dirname "$DEST")"
+
+          echo "Converting $SRC -> $DEST"
+          pandoc -s "$SRC" -o "$DEST" \
+            --include-in-header=/tmp/og-header.html \
+            --lua-filter="${{ github.action_path }}/filters/mdlinks-to-html.lua"
+        done < /tmp/mdpress_files.txt
+
+    - name: Generate index page (multi-file mode)
+      if: ${{ inputs.sources != '' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        INDEX_MD=/tmp/mdpress_index.md
+        REPO_NAME="${{ github.event.repository.name }}"
+
+        {
+          echo "# ${REPO_NAME}"
+          echo
+          echo "_Generated by md-press_"
+          echo
+
+          while IFS= read -r SRC; do
+            REL="${SRC#./}"
+            HTML="${REL%.md}.html"
+
+            TITLE=$(grep -m1 '^# ' "$SRC" | sed 's/^# //' || true)
+            if [ -z "$TITLE" ]; then
+              TITLE="${REL%.md}"
+            fi
+
+            echo "- [${TITLE}](${HTML})"
+          done < /tmp/mdpress_files.txt
+        } > "$INDEX_MD"
+
+        pandoc -s "$INDEX_MD" -o "_site/${{ inputs.output-html }}" \
           --include-in-header=/tmp/og-header.html
 
     - name: Generate preview image
