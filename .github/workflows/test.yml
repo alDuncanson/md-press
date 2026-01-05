@@ -64,16 +64,16 @@ jobs:
         run: |
           mkdir -p docs/guides
 
-          cat > docs/index.md << 'EOF'
+          cat > docs/01-index.md << 'EOF'
           # Documentation Home
 
-          Welcome to the docs. See [Getting Started](guides/getting-started.md) or [Advanced Usage](guides/advanced.md).
+          Welcome to the docs. See [Getting Started](guides/01-getting-started.md) or [Advanced Usage](guides/02-advanced.md).
           EOF
 
-          cat > docs/guides/getting-started.md << 'EOF'
+          cat > docs/guides/01-getting-started.md << 'EOF'
           # Getting Started
 
-          This guide covers the basics. For more, see [Advanced Usage](advanced.md) or return to the [Home](../index.md).
+          This guide covers the basics. For more, see [Advanced Usage](02-advanced.md) or return to the [Home](../01-index.md).
 
           ## Installation
 
@@ -82,10 +82,10 @@ jobs:
           3. Step three
           EOF
 
-          cat > docs/guides/advanced.md << 'EOF'
+          cat > docs/guides/02-advanced.md << 'EOF'
           # Advanced Usage
 
-          Building on the [Getting Started](getting-started.md) guide.
+          Building on the [Getting Started](01-getting-started.md) guide.
 
           ## Configuration
 
@@ -118,9 +118,9 @@ jobs:
           grep -q 'Documentation' _site/index.html || (echo "Missing custom index title" && exit 1)
 
           # Verify HTML files preserve directory structure
-          test -f _site/docs/index.html || (echo "Missing docs/index.html" && exit 1)
-          test -f _site/docs/guides/getting-started.html || (echo "Missing getting-started.html" && exit 1)
-          test -f _site/docs/guides/advanced.html || (echo "Missing advanced.html" && exit 1)
+          test -f _site/docs/01-index.html || (echo "Missing docs/01-index.html" && exit 1)
+          test -f _site/docs/guides/01-getting-started.html || (echo "Missing 01-getting-started.html" && exit 1)
+          test -f _site/docs/guides/02-advanced.html || (echo "Missing 02-advanced.html" && exit 1)
 
           # Verify combined PDF
           test -f _site/docs.pdf || (echo "Missing docs.pdf" && exit 1)

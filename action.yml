@@ -97,7 +97,7 @@ runs:
           exit 1
         fi
 
-        IFS=$'\n' FILES=($(printf '%s\n' "${FILES[@]}" | sort -u))
+        IFS=$'\n' FILES=($(printf '%s\n' "${FILES[@]}" | sort -Vu))
         unset IFS
 
         printf '%s\n' "${FILES[@]}" > /tmp/mdpress_files.txt
