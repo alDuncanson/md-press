@@ -152,7 +152,9 @@ jobs:
 
       - name: Create flat collection of unrelated documents
         run: |
-          cat > resume.md << 'EOF'
+          mkdir -p job-docs
+
+          cat > job-docs/resume.md << 'EOF'
           # John Doe - Resume
 
           ## Experience
@@ -163,7 +165,7 @@ jobs:
           - BS Computer Science
           EOF
 
-          cat > cover-letter.md << 'EOF'
+          cat > job-docs/cover-letter.md << 'EOF'
           # Cover Letter
 
           Dear Hiring Manager,
@@ -174,7 +176,7 @@ jobs:
           John Doe
           EOF
 
-          cat > references.md << 'EOF'
+          cat > job-docs/references.md << 'EOF'
           # Professional References
 
           1. Jane Smith - Manager at Acme Corp
@@ -183,7 +185,7 @@ jobs:
 
       - uses: ./
         with:
-          sources: '*.md'
+          sources: 'job-docs/*.md'
           mode: 'collection'
           index-title: 'My Documents'
           deploy: 'false'
@@ -192,25 +194,26 @@ jobs:
         run: |
           echo "Checking generated files..."
           ls -la _site/
+          ls -la _site/job-docs/
 
           # Verify index page
           test -f _site/index.html || (echo "Missing index.html" && exit 1)
           grep -q 'My Documents' _site/index.html || (echo "Missing custom index title" && exit 1)
 
           # Verify individual HTML files
-          test -f _site/resume.html || (echo "Missing resume.html" && exit 1)
-          test -f _site/cover-letter.html || (echo "Missing cover-letter.html" && exit 1)
-          test -f _site/references.html || (echo "Missing references.html" && exit 1)
+          test -f _site/job-docs/resume.html || (echo "Missing resume.html" && exit 1)
+          test -f _site/job-docs/cover-letter.html || (echo "Missing cover-letter.html" && exit 1)
+          test -f _site/job-docs/references.html || (echo "Missing references.html" && exit 1)
 
           # Verify individual PDFs
-          test -f _site/resume.pdf || (echo "Missing resume.pdf" && exit 1)
-          test -f _site/cover-letter.pdf || (echo "Missing cover-letter.pdf" && exit 1)
-          test -f _site/references.pdf || (echo "Missing references.pdf" && exit 1)
+          test -f _site/job-docs/resume.pdf || (echo "Missing resume.pdf" && exit 1)
+          test -f _site/job-docs/cover-letter.pdf || (echo "Missing cover-letter.pdf" && exit 1)
+          test -f _site/job-docs/references.pdf || (echo "Missing references.pdf" && exit 1)
 
           # Verify individual preview images
-          test -f _site/resume-preview.png || (echo "Missing resume-preview.png" && exit 1)
-          test -f _site/cover-letter-preview.png || (echo "Missing cover-letter-preview.png" && exit 1)
-          test -f _site/references-preview.png || (echo "Missing references-preview.png" && exit 1)
+          test -f _site/job-docs/resume-preview.png || (echo "Missing resume-preview.png" && exit 1)
+          test -f _site/job-docs/cover-letter-preview.png || (echo "Missing cover-letter-preview.png" && exit 1)
+          test -f _site/job-docs/references-preview.png || (echo "Missing references-preview.png" && exit 1)
 
           # Verify index links to PDFs
           grep -q 'resume.pdf' _site/index.html || (echo "Missing PDF link in index" && exit 1)
