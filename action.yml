@@ -295,7 +295,7 @@ runs:
         while IFS= read -r SRC; do
           REL="${SRC#./}"
           PDF="_site/${REL%.md}.pdf"
-          PREVIEW="_site/${REL%.md}-preview"
+          PREVIEW="_site/${REL%.md}"
 
           echo "Generating preview for $PDF"
           pdftoppm "$PDF" "$PREVIEW" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}

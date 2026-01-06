@@ -211,9 +211,9 @@ jobs:
           test -f _site/job-docs/references.pdf || (echo "Missing references.pdf" && exit 1)
 
           # Verify individual preview images
-          test -f _site/job-docs/resume-preview.png || (echo "Missing resume-preview.png" && exit 1)
-          test -f _site/job-docs/cover-letter-preview.png || (echo "Missing cover-letter-preview.png" && exit 1)
-          test -f _site/job-docs/references-preview.png || (echo "Missing references-preview.png" && exit 1)
+          test -f _site/job-docs/resume.png || (echo "Missing resume.png" && exit 1)
+          test -f _site/job-docs/cover-letter.png || (echo "Missing cover-letter.png" && exit 1)
+          test -f _site/job-docs/references.png || (echo "Missing references.png" && exit 1)
 
           # Verify index links to PDFs
           grep -q 'resume.pdf' _site/index.html || (echo "Missing PDF link in index" && exit 1)
@@ -290,9 +290,9 @@ jobs:
           test -f _site/projects/mobile/app-showcase.pdf || (echo "Missing app-showcase.pdf" && exit 1)
 
           # Verify nested preview images
-          test -f _site/projects/web/portfolio-preview.png || (echo "Missing portfolio-preview.png" && exit 1)
-          test -f _site/projects/web/case-study-preview.png || (echo "Missing case-study-preview.png" && exit 1)
-          test -f _site/projects/mobile/app-showcase-preview.png || (echo "Missing app-showcase-preview.png" && exit 1)
+          test -f _site/projects/web/portfolio.png || (echo "Missing portfolio.png" && exit 1)
+          test -f _site/projects/web/case-study.png || (echo "Missing case-study.png" && exit 1)
+          test -f _site/projects/mobile/app-showcase.png || (echo "Missing app-showcase.png" && exit 1)
 
           echo "All collection nested mode checks passed!"
 
