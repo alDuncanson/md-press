@@ -55,7 +55,7 @@ jobs:
           name: test-output-single
           path: _site/
 
-  test-multi-file:
+  test-combined:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -303,7 +303,7 @@ jobs:
           path: _site/
 
   comment-on-pr:
-    needs: [test-single-file, test-multi-file, test-collection-flat, test-collection-nested]
+    needs: [test-single-file, test-combined, test-collection-flat, test-collection-nested]
     runs-on: ubuntu-latest
     steps:
       - name: Comment on PR with preview
