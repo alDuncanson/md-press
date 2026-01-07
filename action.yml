@@ -9,7 +9,7 @@ inputs:
   source:
     description: 'Source Markdown file (single-file mode)'
     required: false
-    default: 'resume.md'
+    default: 'document.md'
   sources:
     description: 'Space or newline separated list of Markdown files or glob patterns (multi-file mode)'
     required: false
@@ -17,7 +17,7 @@ inputs:
   output-pdf:
     description: 'Output PDF filename'
     required: false
-    default: 'resume.pdf'
+    default: 'document.pdf'
   output-html:
     description: 'Output HTML filename'
     required: false
