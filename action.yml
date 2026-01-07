@@ -7,13 +7,17 @@ branding:
 
 inputs:
   source:
-    description: 'Source Markdown file'
+    description: 'Source Markdown file (single-file mode)'
     required: false
-    default: 'resume.md'
+    default: 'document.md'
+  sources:
+    description: 'Space or newline separated list of Markdown files or glob patterns (multi-file mode)'
+    required: false
+    default: ''
   output-pdf:
     description: 'Output PDF filename'
     required: false
-    default: 'resume.pdf'
+    default: 'document.pdf'
   output-html:
     description: 'Output HTML filename'
     required: false
@@ -26,6 +30,14 @@ inputs:
     description: 'Preview image resolution in DPI'
     required: false
     default: '150'
+  mode:
+    description: 'Multi-file mode: "combined" (one PDF) or "collection" (separate PDFs per file)'
+    required: false
+    default: 'combined'
+  index-title:
+    description: 'Title for the auto-generated index page (multi-file mode)'
+    required: false
+    default: 'Index'
   deploy:
     description: 'Whether to deploy to GitHub Pages (set to false to only generate files)'
     required: false
@@ -63,43 +75,231 @@ runs:
       shell: bash
       run: mkdir -p _site
 
-    - name: Generate PDF
-      shell: bash
-      run: pandoc "${{ inputs.source }}" -o "_site/${{ inputs.output-pdf }}" --pdf-engine tectonic
-
-    - name: Generate HTML with OpenGraph meta tags
+    - name: Resolve source files (multi-file mode)
+      if: ${{ inputs.sources != '' }}
       shell: bash
       run: |
-        # Get the repository name for the title fallback
+        set -euo pipefail
+        shopt -s globstar nullglob
+
+        SOURCES_STR="${{ inputs.sources }}"
+        FILES=()
+
+        for pattern in $SOURCES_STR; do
+          for f in $pattern; do
+            [ -f "$f" ] || continue
+            FILES+=("$f")
+          done
+        done
+
+        if [ ${#FILES[@]} -eq 0 ]; then
+          echo "::error::No source files matched patterns: $SOURCES_STR"
+          exit 1
+        fi
+
+        IFS=$'\n' FILES=($(printf '%s\n' "${FILES[@]}" | sort -Vu))
+        unset IFS
+
+        printf '%s\n' "${FILES[@]}" > /tmp/mdpress_files.txt
+        echo "Found ${#FILES[@]} source file(s):"
+        cat /tmp/mdpress_files.txt
+
+    - name: Generate PDF (single-file mode)
+      if: ${{ inputs.sources == '' }}
+      shell: bash
+      run: |
+        pandoc "${{ inputs.source }}" \
+          -o "_site/${{ inputs.output-pdf }}" \
+          --pdf-engine tectonic \
+          --lua-filter="${{ github.action_path }}/filters/mdlinks-to-anchors.lua"
+
+    - name: Generate PDF (multi-file mode, combined)
+      if: ${{ inputs.sources != '' && inputs.mode == 'combined' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        mapfile -t FILES < /tmp/mdpress_files.txt
+
+        # Combine files with page breaks between them
+        COMBINED=/tmp/mdpress_combined.md
+        : > "$COMBINED"
+
+        for i in "${!FILES[@]}"; do
+          if [ "$i" -gt 0 ]; then
+            printf '\n\\newpage\n\n' >> "$COMBINED"
+          fi
+          cat "${FILES[$i]}" >> "$COMBINED"
+        done
+
+        pandoc "$COMBINED" \
+          -o "_site/${{ inputs.output-pdf }}" \
+          --pdf-engine tectonic \
+          --lua-filter="${{ github.action_path }}/filters/mdlinks-to-anchors.lua"
+
+    - name: Generate PDFs (multi-file mode, collection)
+      if: ${{ inputs.sources != '' && inputs.mode == 'collection' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        while IFS= read -r SRC; do
+          REL="${SRC#./}"
+          PDF_DEST="_site/${REL%.md}.pdf"
+          mkdir -p "$(dirname "$PDF_DEST")"
+
+          echo "Converting $SRC -> $PDF_DEST"
+          pandoc "$SRC" \
+            -o "$PDF_DEST" \
+            --pdf-engine tectonic \
+            --lua-filter="${{ github.action_path }}/filters/mdlinks-to-anchors.lua"
+        done < /tmp/mdpress_files.txt
+
+    - name: Generate HTML with OpenGraph meta tags (single-file mode)
+      if: ${{ inputs.sources == '' }}
+      shell: bash
+      run: |
         REPO_NAME="${{ github.event.repository.name }}"
-        
-        # Build the base URL for GitHub Pages
+
         if [ "${{ github.repository_owner }}" = "${{ github.event.repository.name }}" ]; then
           BASE_URL="https://${{ github.repository_owner }}.github.io"
         else
           BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
         fi
-        
+
         PREVIEW_URL="${BASE_URL}/${{ inputs.output-preview }}.png"
         PAGE_URL="${BASE_URL}/"
-        
-        # Create a header file with OpenGraph meta tags
+
         cat > /tmp/og-header.html << 'HEADER_EOF'
         <meta property="og:type" content="website">
         HEADER_EOF
-        
+
         echo "<meta property=\"og:image\" content=\"${PREVIEW_URL}\">" >> /tmp/og-header.html
         echo "<meta property=\"og:url\" content=\"${PAGE_URL}\">" >> /tmp/og-header.html
         echo "<meta name=\"twitter:card\" content=\"summary_large_image\">" >> /tmp/og-header.html
         echo "<meta name=\"twitter:image\" content=\"${PREVIEW_URL}\">" >> /tmp/og-header.html
-        
-        # Generate HTML with the OpenGraph headers
+
         pandoc -s "${{ inputs.source }}" -o "_site/${{ inputs.output-html }}" \
+          --include-in-header=/tmp/og-header.html \
+          --lua-filter="${{ github.action_path }}/filters/mdlinks-to-html.lua"
+
+    - name: Generate HTML pages (multi-file mode)
+      if: ${{ inputs.sources != '' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        REPO_NAME="${{ github.event.repository.name }}"
+        if [ "${{ github.repository_owner }}" = "${{ github.event.repository.name }}" ]; then
+          BASE_URL="https://${{ github.repository_owner }}.github.io"
+        else
+          BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+        fi
+
+        PREVIEW_URL="${BASE_URL}/${{ inputs.output-preview }}.png"
+        PAGE_URL="${BASE_URL}/"
+
+        cat > /tmp/og-header.html << 'HEADER_EOF'
+        <meta property="og:type" content="website">
+        HEADER_EOF
+
+        echo "<meta property=\"og:image\" content=\"${PREVIEW_URL}\">" >> /tmp/og-header.html
+        echo "<meta property=\"og:url\" content=\"${PAGE_URL}\">" >> /tmp/og-header.html
+        echo "<meta name=\"twitter:card\" content=\"summary_large_image\">" >> /tmp/og-header.html
+        echo "<meta name=\"twitter:image\" content=\"${PREVIEW_URL}\">" >> /tmp/og-header.html
+
+        while IFS= read -r SRC; do
+          REL="${SRC#./}"
+          DEST="_site/${REL%.md}.html"
+          mkdir -p "$(dirname "$DEST")"
+
+          echo "Converting $SRC -> $DEST"
+          pandoc -s "$SRC" -o "$DEST" \
+            --include-in-header=/tmp/og-header.html \
+            --lua-filter="${{ github.action_path }}/filters/mdlinks-to-html.lua"
+        done < /tmp/mdpress_files.txt
+
+    - name: Generate index page (multi-file mode, combined)
+      if: ${{ inputs.sources != '' && inputs.mode == 'combined' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        INDEX_MD=/tmp/mdpress_index.md
+        INDEX_TITLE="${{ inputs.index-title }}"
+
+        {
+          echo "# ${INDEX_TITLE}"
+          echo
+          echo "_Generated by [md-press](https://github.com/alDuncanson/md-press)_"
+          echo
+
+          while IFS= read -r SRC; do
+            REL="${SRC#./}"
+            HTML="${REL%.md}.html"
+
+            TITLE=$(grep -m1 '^# ' "$SRC" | sed 's/^# //' || true)
+            if [ -z "$TITLE" ]; then
+              TITLE="${REL%.md}"
+            fi
+
+            echo "- [${TITLE}](${HTML})"
+          done < /tmp/mdpress_files.txt
+        } > "$INDEX_MD"
+
+        pandoc -s "$INDEX_MD" -o "_site/${{ inputs.output-html }}" \
           --include-in-header=/tmp/og-header.html
 
-    - name: Generate preview image
+    - name: Generate index page (multi-file mode, collection)
+      if: ${{ inputs.sources != '' && inputs.mode == 'collection' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        INDEX_MD=/tmp/mdpress_index.md
+        INDEX_TITLE="${{ inputs.index-title }}"
+
+        {
+          echo "# ${INDEX_TITLE}"
+          echo
+          echo "_Generated by [md-press](https://github.com/alDuncanson/md-press)_"
+          echo
+
+          while IFS= read -r SRC; do
+            REL="${SRC#./}"
+            HTML="${REL%.md}.html"
+            PDF="${REL%.md}.pdf"
+
+            TITLE=$(grep -m1 '^# ' "$SRC" | sed 's/^# //' || true)
+            if [ -z "$TITLE" ]; then
+              TITLE="${REL%.md}"
+            fi
+
+            echo "- [${TITLE}](${HTML}) ([PDF](${PDF}))"
+          done < /tmp/mdpress_files.txt
+        } > "$INDEX_MD"
+
+        pandoc -s "$INDEX_MD" -o "_site/${{ inputs.output-html }}" \
+          --include-in-header=/tmp/og-header.html
+
+    - name: Generate preview image (single-file or combined mode)
+      if: ${{ inputs.sources == '' || inputs.mode == 'combined' }}
       shell: bash
       run: pdftoppm "_site/${{ inputs.output-pdf }}" "_site/${{ inputs.output-preview }}" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}
+
+    - name: Generate preview images (collection mode)
+      if: ${{ inputs.sources != '' && inputs.mode == 'collection' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        while IFS= read -r SRC; do
+          REL="${SRC#./}"
+          PDF="_site/${REL%.md}.pdf"
+          PREVIEW="_site/${REL%.md}"
+
+          echo "Generating preview for $PDF"
+          pdftoppm "$PDF" "$PREVIEW" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}
+        done < /tmp/mdpress_files.txt
 
     - name: Upload Pages artifact
       if: ${{ inputs.deploy == 'true' }}
