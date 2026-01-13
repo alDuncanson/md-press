@@ -40,8 +40,9 @@ jobs:
 This converts `document.md` into a PDF, an HTML page, and a preview image, then
 deploys everything to GitHub Pages.
 
-See the [resume template](https://github.com/alDuncanson/resume) for the project
-that inspired `md-press`.
+See [my resume](https://github.com/alDuncanson/resume) for a single-document
+publishing example, or [essays](https://github.com/alDuncanson/essays) for a
+multi-document example.
 
 ## Configuration
 
