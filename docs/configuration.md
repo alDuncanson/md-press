@@ -8,7 +8,7 @@
 | `sources` | Space or newline separated list of Markdown files or glob patterns (multi-file mode) | — |
 | `output-pdf` | Output PDF filename | `document.pdf` |
 | `output-html` | Output HTML filename | `index.html` |
-| `output-preview` | Output preview image filename (without extension) | `preview` |
+| `output-preview` | Output preview image filename (without extension) | PDF name |
 | `preview-dpi` | Preview image resolution in DPI | `150` |
 | `mode` | Multi-file mode: `combined` (single PDF) or `collection` (separate PDFs) | `combined` |
 | `index-title` | Title for auto-generated index page (multi-file mode) | `Index` |

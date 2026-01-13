@@ -23,9 +23,9 @@ inputs:
     required: false
     default: 'index.html'
   output-preview:
-    description: 'Output preview image filename (without extension)'
+    description: 'Output preview image filename (without extension). Defaults to PDF name if not set.'
     required: false
-    default: 'preview'
+    default: ''
   preview-dpi:
     description: 'Preview image resolution in DPI'
     required: false
@@ -166,7 +166,13 @@ runs:
           BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
         fi
 
-        PREVIEW_URL="${BASE_URL}/${{ inputs.output-preview }}.png"
+        PDF_NAME="${{ inputs.output-pdf }}"
+        PREVIEW_NAME="${{ inputs.output-preview }}"
+        if [ -z "$PREVIEW_NAME" ]; then
+          PREVIEW_NAME="${PDF_NAME%.pdf}"
+        fi
+
+        PREVIEW_URL="${BASE_URL}/${PREVIEW_NAME}.png"
         PAGE_URL="${BASE_URL}/"
 
         cat > /tmp/og-header.html << 'HEADER_EOF'
@@ -182,8 +188,8 @@ runs:
           --include-in-header=/tmp/og-header.html \
           --lua-filter="${{ github.action_path }}/filters/mdlinks-to-html.lua"
 
-    - name: Generate HTML pages (multi-file mode)
-      if: ${{ inputs.sources != '' }}
+    - name: Generate HTML pages (multi-file combined mode)
+      if: ${{ inputs.sources != '' && inputs.mode == 'combined' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -195,7 +201,13 @@ runs:
           BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
         fi
 
-        PREVIEW_URL="${BASE_URL}/${{ inputs.output-preview }}.png"
+        PDF_NAME="${{ inputs.output-pdf }}"
+        PREVIEW_NAME="${{ inputs.output-preview }}"
+        if [ -z "$PREVIEW_NAME" ]; then
+          PREVIEW_NAME="${PDF_NAME%.pdf}"
+        fi
+
+        PREVIEW_URL="${BASE_URL}/${PREVIEW_NAME}.png"
         PAGE_URL="${BASE_URL}/"
 
         cat > /tmp/og-header.html << 'HEADER_EOF'
@@ -211,6 +223,40 @@ runs:
           REL="${SRC#./}"
           DEST="_site/${REL%.md}.html"
           mkdir -p "$(dirname "$DEST")"
+
+          echo "Converting $SRC -> $DEST"
+          pandoc -s "$SRC" -o "$DEST" \
+            --include-in-header=/tmp/og-header.html \
+            --lua-filter="${{ github.action_path }}/filters/mdlinks-to-html.lua"
+        done < /tmp/mdpress_files.txt
+
+    - name: Generate HTML pages (multi-file collection mode)
+      if: ${{ inputs.sources != '' && inputs.mode == 'collection' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        REPO_NAME="${{ github.event.repository.name }}"
+        if [ "${{ github.repository_owner }}" = "${{ github.event.repository.name }}" ]; then
+          BASE_URL="https://${{ github.repository_owner }}.github.io"
+        else
+          BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+        fi
+
+        while IFS= read -r SRC; do
+          REL="${SRC#./}"
+          DEST="_site/${REL%.md}.html"
+          PREVIEW_URL="${BASE_URL}/${REL%.md}.png"
+          PAGE_URL="${BASE_URL}/${REL%.md}.html"
+          mkdir -p "$(dirname "$DEST")"
+
+          cat > /tmp/og-header.html << HEADER_EOF
+        <meta property="og:type" content="website">
+        <meta property="og:image" content="${PREVIEW_URL}">
+        <meta property="og:url" content="${PAGE_URL}">
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:image" content="${PREVIEW_URL}">
+        HEADER_EOF
 
           echo "Converting $SRC -> $DEST"
           pandoc -s "$SRC" -o "$DEST" \
@@ -284,7 +330,13 @@ runs:
     - name: Generate preview image (single-file or combined mode)
       if: ${{ inputs.sources == '' || inputs.mode == 'combined' }}
       shell: bash
-      run: pdftoppm "_site/${{ inputs.output-pdf }}" "_site/${{ inputs.output-preview }}" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}
+      run: |
+        PDF_NAME="${{ inputs.output-pdf }}"
+        PREVIEW_NAME="${{ inputs.output-preview }}"
+        if [ -z "$PREVIEW_NAME" ]; then
+          PREVIEW_NAME="${PDF_NAME%.pdf}"
+        fi
+        pdftoppm "_site/$PDF_NAME" "_site/$PREVIEW_NAME" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}
 
     - name: Generate preview images (collection mode)
       if: ${{ inputs.sources != '' && inputs.mode == 'collection' }}
