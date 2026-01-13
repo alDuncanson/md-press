@@ -125,8 +125,8 @@ jobs:
           # Verify combined PDF
           test -f _site/docs.pdf || (echo "Missing docs.pdf" && exit 1)
 
-          # Verify single preview image for combined PDF
-          test -f _site/preview.png || (echo "Missing preview.png" && exit 1)
+          # Verify single preview image for combined PDF (derived from PDF name)
+          test -f _site/docs.png || (echo "Missing docs.png" && exit 1)
 
           # Verify .md links were rewritten to .html
           if grep -q '\.md"' _site/docs/index.html; then
@@ -319,20 +319,20 @@ jobs:
             body += `**Single-file mode (test-output-single):**\n`;
             body += `- resume.pdf\n`;
             body += `- index.html\n`;
-            body += `- preview.png\n\n`;
+            body += `- resume.png\n\n`;
             body += `**Combined mode (test-output-combined):**\n`;
             body += `- docs.pdf (combined)\n`;
             body += `- index.html (auto-generated index)\n`;
             body += `- docs/*.html (individual pages)\n`;
-            body += `- preview.png\n\n`;
+            body += `- docs.png\n\n`;
             body += `**Collection mode - flat (test-output-collection-flat):**\n`;
             body += `- resume.pdf, cover-letter.pdf, references.pdf\n`;
             body += `- resume.html, cover-letter.html, references.html\n`;
-            body += `- *-preview.png (one per document)\n\n`;
+            body += `- *.png (one per document)\n\n`;
             body += `**Collection mode - nested (test-output-collection-nested):**\n`;
             body += `- projects/web/*.pdf, projects/mobile/*.pdf\n`;
             body += `- projects/web/*.html, projects/mobile/*.html\n`;
-            body += `- *-preview.png (one per document)\n`;
+            body += `- *.png (one per document)\n`;
             
             await github.rest.issues.createComment({
               owner: context.repo.owner,
