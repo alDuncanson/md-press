@@ -9,6 +9,12 @@ Publish Markdown documents for free with `md-press`.
 
 ## Quick start
 
+1. In your repository, go to **Settings → Pages** and set **Source** to
+   **GitHub Actions**.
+2. Add the Markdown you want to publish as `document.md` in the repository
+   root, or point `source:` at an existing file.
+3. Save this workflow as `.github/workflows/publish.yml` and push it to `main`:
+
 ```yaml
 name: Publish
 
@@ -31,16 +37,14 @@ jobs:
       - uses: actions/checkout@v7
       - uses: alDuncanson/md-press@v0.2.0
         id: md-press
+        # with:
+        #   source: README.md
 ```
 
-> [!NOTE]
-> Your repository must have GitHub Pages enabled with **GitHub Actions** as the
-> source. Go to Settings → Pages → Source → select "GitHub Actions".
-
-This converts `document.md` into a PDF, an HTML page, and a preview image, then
-deploys everything to GitHub Pages. It can also build
-[pull request previews](docs/configuration.md#pull-request-previews) that link
-to the generated files in a comment.
+Each push to `main` converts your Markdown into a PDF, an HTML page, and a
+preview image, and publishes them at `https://<owner>.github.io/<repo>/`. To
+check changes before they go live, add
+[pull request previews](docs/configuration.md#pull-request-previews).
 
 See [my resume](https://github.com/alDuncanson/resume) for a single-document
 publishing example, or [essays](https://github.com/alDuncanson/essays) for a
