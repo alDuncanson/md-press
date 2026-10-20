@@ -48,12 +48,7 @@ jobs:
         with:
           source: test.md
           deploy: 'false'
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-output-single
-          path: _site/
+          artifact-name: test-output-single
 
   test-combined:
     runs-on: ubuntu-latest
@@ -105,6 +100,8 @@ jobs:
           mode: 'combined'
           index-title: 'Documentation'
           deploy: 'false'
+          artifact-name: test-output-combined
+          pr-comment: 'false'
 
       - name: Verify multi-file combined output
         run: |
@@ -138,12 +135,6 @@ jobs:
           grep -q 'md-press' _site/index.html || (echo "Missing md-press attribution link" && exit 1)
 
           echo "All combined mode checks passed!"
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-output-combined
-          path: _site/
 
   test-collection-flat:
     runs-on: ubuntu-latest
@@ -189,6 +180,7 @@ jobs:
           mode: 'collection'
           index-title: 'My Documents'
           deploy: 'false'
+          artifact-name: test-output-collection-flat
 
       - name: Verify collection flat output
         run: |
@@ -219,12 +211,6 @@ jobs:
           grep -q 'resume.pdf' _site/index.html || (echo "Missing PDF link in index" && exit 1)
 
           echo "All collection flat mode checks passed!"
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-output-collection-flat
-          path: _site/
 
   test-collection-nested:
     runs-on: ubuntu-latest
@@ -267,6 +253,8 @@ jobs:
           mode: 'collection'
           index-title: 'Project Portfolio'
           deploy: 'false'
+          artifact-name: test-output-collection-nested
+          pr-comment: 'false'
 
       - name: Verify collection nested output
         run: |
@@ -295,48 +283,3 @@ jobs:
           test -f _site/projects/mobile/app-showcase.png || (echo "Missing app-showcase.png" && exit 1)
 
           echo "All collection nested mode checks passed!"
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-output-collection-nested
-          path: _site/
-
-  comment-on-pr:
-    needs: [test-single-file, test-combined, test-collection-flat, test-collection-nested]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Comment on PR with preview
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const artifactUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            
-            let body = `## Test Build Preview\n\n`;
-            body += `Generated from \`${context.payload.pull_request.head.sha.substring(0, 7)}\`\n\n`;
-            body += `### Artifacts\n\n`;
-            body += `Download the generated files from the [workflow run](${artifactUrl}):\n\n`;
-            body += `**Single-file mode (test-output-single):**\n`;
-            body += `- resume.pdf\n`;
-            body += `- index.html\n`;
-            body += `- resume.png\n\n`;
-            body += `**Combined mode (test-output-combined):**\n`;
-            body += `- docs.pdf (combined)\n`;
-            body += `- index.html (auto-generated index)\n`;
-            body += `- docs/*.html (individual pages)\n`;
-            body += `- docs.png\n\n`;
-            body += `**Collection mode - flat (test-output-collection-flat):**\n`;
-            body += `- resume.pdf, cover-letter.pdf, references.pdf\n`;
-            body += `- resume.html, cover-letter.html, references.html\n`;
-            body += `- *.png (one per document)\n\n`;
-            body += `**Collection mode - nested (test-output-collection-nested):**\n`;
-            body += `- projects/web/*.pdf, projects/mobile/*.pdf\n`;
-            body += `- projects/web/*.html, projects/mobile/*.html\n`;
-            body += `- *.png (one per document)\n`;
-            
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: body
-            });

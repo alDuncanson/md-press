@@ -13,6 +13,9 @@
 | `mode` | Multi-file mode: `combined` (single PDF) or `collection` (separate PDFs) | `combined` |
 | `index-title` | Title for auto-generated index page (multi-file mode) | `Index` |
 | `deploy` | Whether to deploy to GitHub Pages | `true` |
+| `artifact-name` | Name of the site artifact uploaded when `deploy` is false | `md-press-site` |
+| `pr-comment` | Comment on pull requests with links to the preview artifacts | `true` |
+| `github-token` | Token used to comment on pull requests | `github.token` |
 
 ## Outputs
 
@@ -104,4 +107,58 @@ To generate files without deploying to GitHub Pages (useful for downloading arti
     deploy: false
 ```
 
-The generated files will be in the `_site/` directory.
+The generated files will be in the `_site/` directory, and are uploaded as a
+workflow artifact named by `artifact-name`. In single-file and combined modes,
+the PDF and preview image (and, for a single file, the HTML page) are also
+uploaded as individual unzipped artifacts that open directly in the browser.
+
+## Pull request previews
+
+Build on pull requests without deploying, and `md-press` comments on the pull
+request with links to the PDF, HTML, and preview image. The comment is updated
+on each push instead of adding a new one.
+
+```yaml
+name: Publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('preview-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event_name != 'pull_request' && 'github-pages' || '' }}
+      url: ${{ steps.md-press.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: alDuncanson/md-press@v1
+        id: md-press
+        with:
+          deploy: ${{ github.event_name != 'pull_request' }}
+```
+
+- Pull requests skip the `github-pages` environment, whose deployment branch
+  policy only allows the default branch.
+- Pull requests use their own concurrency group, so a preview never cancels or
+  waits behind a Pages deployment.
+- `pull-requests: write` lets the action comment. Without it, or on pull
+  requests from forks, the action logs a warning and the artifacts are still
+  available from the workflow run.
+- Artifact links require signing in to GitHub and expire with the repository's
+  artifact retention period.
+- If a workflow calls `md-press` more than once, give each call a different
+  `artifact-name` and output filenames, because artifact names must be unique
+  within a workflow run.

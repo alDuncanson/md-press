@@ -42,6 +42,18 @@ inputs:
     description: 'Whether to deploy to GitHub Pages (set to false to only generate files)'
     required: false
     default: 'true'
+  artifact-name:
+    description: 'Name of the workflow artifact containing the generated site, uploaded when deploy is false'
+    required: false
+    default: 'md-press-site'
+  pr-comment:
+    description: 'When deploy is false on a pull_request event, post or update a comment linking to the preview artifacts. Requires the pull-requests: write permission.'
+    required: false
+    default: 'true'
+  github-token:
+    description: 'Token used to comment on pull requests'
+    required: false
+    default: ${{ github.token }}
 
 outputs:
   pdf:
@@ -352,6 +364,111 @@ runs:
           echo "Generating preview for $PDF"
           pdftoppm "$PDF" "$PREVIEW" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}
         done < /tmp/mdpress_files.txt
+
+    - name: Resolve preview file names
+      id: names
+      if: ${{ inputs.deploy != 'true' }}
+      shell: bash
+      env:
+        PDF_NAME: ${{ inputs.output-pdf }}
+        PREVIEW_NAME: ${{ inputs.output-preview }}
+      run: |
+        echo "pdf=${PDF_NAME}" >> "$GITHUB_OUTPUT"
+        echo "preview=${PREVIEW_NAME:-${PDF_NAME%.pdf}}.png" >> "$GITHUB_OUTPUT"
+
+    - name: Upload site artifact
+      id: upload-site
+      if: ${{ inputs.deploy != 'true' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: _site
+        if-no-files-found: error
+        overwrite: true
+
+    - name: Upload PDF artifact
+      id: upload-pdf
+      if: ${{ inputs.deploy != 'true' && (inputs.sources == '' || inputs.mode == 'combined') }}
+      uses: actions/upload-artifact@v7
+      with:
+        path: _site/${{ steps.names.outputs.pdf }}
+        archive: false
+        if-no-files-found: error
+        overwrite: true
+
+    - name: Upload HTML artifact
+      id: upload-html
+      if: ${{ inputs.deploy != 'true' && inputs.sources == '' }}
+      uses: actions/upload-artifact@v7
+      with:
+        path: _site/${{ inputs.output-html }}
+        archive: false
+        if-no-files-found: error
+        overwrite: true
+
+    - name: Upload preview image artifact
+      id: upload-preview
+      if: ${{ inputs.deploy != 'true' && (inputs.sources == '' || inputs.mode == 'combined') }}
+      uses: actions/upload-artifact@v7
+      with:
+        path: _site/${{ steps.names.outputs.preview }}
+        archive: false
+        if-no-files-found: error
+        overwrite: true
+
+    - name: Comment on pull request
+      if: ${{ inputs.deploy != 'true' && inputs.pr-comment == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        SITE_URL: ${{ steps.upload-site.outputs.artifact-url }}
+        PDF_NAME: ${{ steps.names.outputs.pdf }}
+        PDF_URL: ${{ steps.upload-pdf.outputs.artifact-url }}
+        HTML_NAME: ${{ inputs.output-html }}
+        HTML_URL: ${{ steps.upload-html.outputs.artifact-url }}
+        PREVIEW_NAME: ${{ steps.names.outputs.preview }}
+        PREVIEW_URL: ${{ steps.upload-preview.outputs.artifact-url }}
+      run: |
+        set -euo pipefail
+
+        MARKER="<!-- md-press-preview:${ARTIFACT_NAME} -->"
+
+        {
+          echo "$MARKER"
+          echo "### md-press preview"
+          echo
+          echo "Built from ${HEAD_SHA:0:7} in [this workflow run](${RUN_URL})."
+          echo
+          echo "| Output | Link |"
+          echo "| --- | --- |"
+          [ -n "$PDF_URL" ] && echo "| PDF | [${PDF_NAME}](${PDF_URL}) |"
+          [ -n "$HTML_URL" ] && echo "| HTML | [${HTML_NAME}](${HTML_URL}) |"
+          [ -n "$PREVIEW_URL" ] && echo "| Preview image | [${PREVIEW_NAME}](${PREVIEW_URL}) |"
+          echo "| Full site | [${ARTIFACT_NAME}.zip](${SITE_URL}) |"
+          echo
+          echo "<sub>Artifact links require signing in to GitHub and expire with this repository's artifact retention period.</sub>"
+        } > /tmp/mdpress_comment.md
+
+        COMMENTS_URL="repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments"
+
+        if ! COMMENT_ID=$(gh api --paginate "$COMMENTS_URL" \
+          | jq -rs --arg marker "$MARKER" '[.[][] | select(.body | startswith($marker)) | .id] | first // empty'); then
+          echo "::warning::Could not read pull request comments; skipping preview comment."
+          exit 0
+        fi
+
+        if [ -n "$COMMENT_ID" ]; then
+          gh api -X PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}" \
+            -F body=@/tmp/mdpress_comment.md > /dev/null \
+            || echo "::warning::Could not update the preview comment. Grant the pull-requests: write permission to enable it."
+        else
+          gh api "$COMMENTS_URL" -F body=@/tmp/mdpress_comment.md > /dev/null \
+            || echo "::warning::Could not post the preview comment. Grant the pull-requests: write permission to enable it."
+        fi
 
     - name: Upload Pages artifact
       if: ${{ inputs.deploy == 'true' }}
