@@ -302,3 +302,22 @@ jobs:
           test -f _site/projects/mobile/app-showcase.png || (echo "Missing app-showcase.png" && exit 1)
 
           echo "All collection nested mode checks passed!"
+
+  test-missing-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./
+        id: missing
+        continue-on-error: true
+        with:
+          source: does-not-exist.md
+          deploy: 'false'
+
+      - name: Verify the action fails before installing tools
+        env:
+          OUTCOME: ${{ steps.missing.outcome }}
+        run: |
+          [ "$OUTCOME" = "failure" ] || (echo "Expected failure, got: $OUTCOME" && exit 1)
+          ! command -v pandoc || (echo "pandoc was installed; the source check should run first" && exit 1)
