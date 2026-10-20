@@ -14,8 +14,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Create test markdown
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          cat > test.md << 'EOF'
+          cat > test.md << EOF
           ---
           geometry: margin=0.75in
           header-includes: |
@@ -24,7 +27,7 @@ jobs:
 
           # Test Document
 
-          This is a test document generated from branch `${{ github.head_ref }}` on PR #${{ github.event.pull_request.number }}.
+          This is a test document generated from branch \`${HEAD_REF}\` on PR #${PR_NUMBER}.
 
           ## Features Being Tested
 
@@ -34,7 +37,7 @@ jobs:
 
           ## Sample Content
 
-          Here's some **bold text**, *italic text*, and `inline code`.
+          Here's some **bold text**, *italic text*, and \`inline code\`.
 
           > A blockquote to test formatting.
 
