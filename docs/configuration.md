@@ -15,7 +15,7 @@
 | `deploy` | Whether to deploy to GitHub Pages | `true` |
 | `artifact-name` | Name of the site artifact uploaded when `deploy` is false | `md-press-site` |
 | `pr-comment` | Comment on pull requests with links to the preview artifacts | `true` |
-| `github-token` | Token used to comment on pull requests | `github.token` |
+| `github-token` | Token used to read the GitHub Pages URL and comment on pull requests | `github.token` |
 
 ## Outputs
 

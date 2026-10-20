@@ -51,7 +51,7 @@ inputs:
     required: false
     default: 'true'
   github-token:
-    description: 'Token used to comment on pull requests'
+    description: 'Token used to read the GitHub Pages URL and comment on pull requests'
     required: false
     default: ${{ github.token }}
 
@@ -86,6 +86,29 @@ runs:
     - name: Create output directory
       shell: bash
       run: mkdir -p _site
+
+    - name: Resolve GitHub Pages URL
+      id: pages
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        # Prefer the configured Pages URL, which includes custom domains.
+        # Reading it needs the pages permission, so fall back to the default URL.
+        BASE_URL=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .html_url 2>/dev/null || true)
+
+        if [ -z "$BASE_URL" ]; then
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          if [ "${REPO,,}" = "${OWNER}.github.io" ]; then
+            BASE_URL="https://${OWNER}.github.io"
+          else
+            BASE_URL="https://${OWNER}.github.io/${REPO}"
+          fi
+        fi
+
+        echo "Using base URL ${BASE_URL%/}"
+        echo "base-url=${BASE_URL%/}" >> "$GITHUB_OUTPUT"
 
     - name: Resolve source files (multi-file mode)
       if: ${{ inputs.sources != '' }}
@@ -170,13 +193,7 @@ runs:
       if: ${{ inputs.sources == '' }}
       shell: bash
       run: |
-        REPO_NAME="${{ github.event.repository.name }}"
-
-        if [ "${{ github.repository_owner }}" = "${{ github.event.repository.name }}" ]; then
-          BASE_URL="https://${{ github.repository_owner }}.github.io"
-        else
-          BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-        fi
+        BASE_URL="${{ steps.pages.outputs.base-url }}"
 
         PDF_NAME="${{ inputs.output-pdf }}"
         PREVIEW_NAME="${{ inputs.output-preview }}"
@@ -206,12 +223,7 @@ runs:
       run: |
         set -euo pipefail
 
-        REPO_NAME="${{ github.event.repository.name }}"
-        if [ "${{ github.repository_owner }}" = "${{ github.event.repository.name }}" ]; then
-          BASE_URL="https://${{ github.repository_owner }}.github.io"
-        else
-          BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-        fi
+        BASE_URL="${{ steps.pages.outputs.base-url }}"
 
         PDF_NAME="${{ inputs.output-pdf }}"
         PREVIEW_NAME="${{ inputs.output-preview }}"
@@ -248,12 +260,7 @@ runs:
       run: |
         set -euo pipefail
 
-        REPO_NAME="${{ github.event.repository.name }}"
-        if [ "${{ github.repository_owner }}" = "${{ github.event.repository.name }}" ]; then
-          BASE_URL="https://${{ github.repository_owner }}.github.io"
-        else
-          BASE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
-        fi
+        BASE_URL="${{ steps.pages.outputs.base-url }}"
 
         while IFS= read -r SRC; do
           REL="${SRC#./}"
