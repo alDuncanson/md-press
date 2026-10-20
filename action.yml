@@ -72,6 +72,17 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Check source file (single-file mode)
+      if: ${{ inputs.sources == '' }}
+      shell: bash
+      env:
+        SOURCE: ${{ inputs.source }}
+      run: |
+        if [ ! -f "$SOURCE" ]; then
+          echo "::error title=md-press::Source file '${SOURCE}' was not found. Add it to your repository, or set the 'source' input to your Markdown file."
+          exit 1
+        fi
+
     - name: Install pandoc and poppler-utils
       shell: bash
       run: |
@@ -429,7 +440,7 @@ runs:
 
         {
           echo "$MARKER"
-          echo "### md-press preview"
+          echo "### [md-press](https://github.com/marketplace/actions/md-press) preview"
           echo
           echo "Built from ${HEAD_SHA:0:7} in [this workflow run](${RUN_URL})."
           echo
