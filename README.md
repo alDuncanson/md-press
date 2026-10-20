@@ -38,7 +38,9 @@ jobs:
 > source. Go to Settings → Pages → Source → select "GitHub Actions".
 
 This converts `document.md` into a PDF, an HTML page, and a preview image, then
-deploys everything to GitHub Pages.
+deploys everything to GitHub Pages. It can also build
+[pull request previews](docs/configuration.md#pull-request-previews) that link
+to the generated files in a comment.
 
 See [my resume](https://github.com/alDuncanson/resume) for a single-document
 publishing example, or [essays](https://github.com/alDuncanson/essays) for a
