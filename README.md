@@ -29,7 +29,7 @@ jobs:
       url: ${{ steps.md-press.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
-      - uses: alDuncanson/md-press@v0.1.6
+      - uses: alDuncanson/md-press@v0.2.0
         id: md-press
 ```
 
