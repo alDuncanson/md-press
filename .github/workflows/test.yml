@@ -50,6 +50,22 @@ jobs:
           deploy: 'false'
           artifact-name: test-output-single
 
+      - name: Verify single-file output
+        env:
+          PDF: ${{ steps.test.outputs.pdf }}
+          HTML: ${{ steps.test.outputs.html }}
+          PREVIEW: ${{ steps.test.outputs.preview }}
+        run: |
+          [ "$PDF" = "_site/document.pdf" ] || (echo "Unexpected pdf output: $PDF" && exit 1)
+          [ "$HTML" = "_site/index.html" ] || (echo "Unexpected html output: $HTML" && exit 1)
+          [ "$PREVIEW" = "_site/document.png" ] || (echo "Unexpected preview output: $PREVIEW" && exit 1)
+          test -f "$PDF" && test -f "$HTML" && test -f "$PREVIEW"
+
+          # This repository has no Pages site, so the default project URL is used
+          OG_IMAGE="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/document.png"
+          grep -qF "<meta property=\"og:image\" content=\"${OG_IMAGE}\">" "$HTML" \
+            || (echo "Missing og:image ${OG_IMAGE}" && grep og: "$HTML" && exit 1)
+
   test-combined:
     runs-on: ubuntu-latest
     steps:

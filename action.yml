@@ -58,13 +58,13 @@ inputs:
 outputs:
   pdf:
     description: 'Path to generated PDF file'
-    value: ${{ inputs.output-pdf }}
+    value: _site/${{ inputs.output-pdf }}
   html:
     description: 'Path to generated HTML file'
-    value: ${{ inputs.output-html }}
+    value: _site/${{ inputs.output-html }}
   preview:
     description: 'Path to generated preview PNG file'
-    value: ${{ inputs.output-preview }}.png
+    value: _site/${{ steps.names.outputs.preview }}
   page_url:
     description: 'URL of the deployed GitHub Pages site'
     value: ${{ steps.deploy.outputs.page_url }}
@@ -109,6 +109,16 @@ runs:
 
         echo "Using base URL ${BASE_URL%/}"
         echo "base-url=${BASE_URL%/}" >> "$GITHUB_OUTPUT"
+
+    - name: Resolve output file names
+      id: names
+      shell: bash
+      env:
+        PDF_NAME: ${{ inputs.output-pdf }}
+        PREVIEW_NAME: ${{ inputs.output-preview }}
+      run: |
+        echo "pdf=${PDF_NAME}" >> "$GITHUB_OUTPUT"
+        echo "preview=${PREVIEW_NAME:-${PDF_NAME%.pdf}}.png" >> "$GITHUB_OUTPUT"
 
     - name: Resolve source files (multi-file mode)
       if: ${{ inputs.sources != '' }}
@@ -195,13 +205,7 @@ runs:
       run: |
         BASE_URL="${{ steps.pages.outputs.base-url }}"
 
-        PDF_NAME="${{ inputs.output-pdf }}"
-        PREVIEW_NAME="${{ inputs.output-preview }}"
-        if [ -z "$PREVIEW_NAME" ]; then
-          PREVIEW_NAME="${PDF_NAME%.pdf}"
-        fi
-
-        PREVIEW_URL="${BASE_URL}/${PREVIEW_NAME}.png"
+        PREVIEW_URL="${BASE_URL}/${{ steps.names.outputs.preview }}"
         PAGE_URL="${BASE_URL}/"
 
         cat > /tmp/og-header.html << 'HEADER_EOF'
@@ -225,13 +229,7 @@ runs:
 
         BASE_URL="${{ steps.pages.outputs.base-url }}"
 
-        PDF_NAME="${{ inputs.output-pdf }}"
-        PREVIEW_NAME="${{ inputs.output-preview }}"
-        if [ -z "$PREVIEW_NAME" ]; then
-          PREVIEW_NAME="${PDF_NAME%.pdf}"
-        fi
-
-        PREVIEW_URL="${BASE_URL}/${PREVIEW_NAME}.png"
+        PREVIEW_URL="${BASE_URL}/${{ steps.names.outputs.preview }}"
         PAGE_URL="${BASE_URL}/"
 
         cat > /tmp/og-header.html << 'HEADER_EOF'
@@ -350,12 +348,8 @@ runs:
       if: ${{ inputs.sources == '' || inputs.mode == 'combined' }}
       shell: bash
       run: |
-        PDF_NAME="${{ inputs.output-pdf }}"
-        PREVIEW_NAME="${{ inputs.output-preview }}"
-        if [ -z "$PREVIEW_NAME" ]; then
-          PREVIEW_NAME="${PDF_NAME%.pdf}"
-        fi
-        pdftoppm "_site/$PDF_NAME" "_site/$PREVIEW_NAME" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}
+        PREVIEW="_site/${{ steps.names.outputs.preview }}"
+        pdftoppm "_site/${{ steps.names.outputs.pdf }}" "${PREVIEW%.png}" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}
 
     - name: Generate preview images (collection mode)
       if: ${{ inputs.sources != '' && inputs.mode == 'collection' }}
@@ -371,17 +365,6 @@ runs:
           echo "Generating preview for $PDF"
           pdftoppm "$PDF" "$PREVIEW" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}
         done < /tmp/mdpress_files.txt
-
-    - name: Resolve preview file names
-      id: names
-      if: ${{ inputs.deploy != 'true' }}
-      shell: bash
-      env:
-        PDF_NAME: ${{ inputs.output-pdf }}
-        PREVIEW_NAME: ${{ inputs.output-preview }}
-      run: |
-        echo "pdf=${PDF_NAME}" >> "$GITHUB_OUTPUT"
-        echo "preview=${PREVIEW_NAME:-${PDF_NAME%.pdf}}.png" >> "$GITHUB_OUTPUT"
 
     - name: Upload site artifact
       id: upload-site
