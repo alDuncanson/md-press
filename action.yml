@@ -79,7 +79,7 @@ runs:
         sudo apt-get install -y pandoc poppler-utils
 
     - name: Install tectonic
-      uses: wtfjoke/setup-tectonic@v3
+      uses: wtfjoke/setup-tectonic@v4
       with:
         github-token: ${{ github.token }}
 
@@ -462,11 +462,11 @@ runs:
 
     - name: Upload Pages artifact
       if: ${{ inputs.deploy == 'true' }}
-      uses: actions/upload-pages-artifact@v4
+      uses: actions/upload-pages-artifact@v5
       with:
         path: _site
 
     - name: Deploy to GitHub Pages
       if: ${{ inputs.deploy == 'true' }}
       id: deploy
-      uses: actions/deploy-pages@v4
+      uses: actions/deploy-pages@v5

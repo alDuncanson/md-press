@@ -11,7 +11,7 @@ jobs:
   test-single-file:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create test markdown
         env:
@@ -72,7 +72,7 @@ jobs:
   test-combined:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create test markdown files
         run: |
@@ -158,7 +158,7 @@ jobs:
   test-collection-flat:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create flat collection of unrelated documents
         run: |
@@ -234,7 +234,7 @@ jobs:
   test-collection-nested:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create nested collection of documents
         run: |

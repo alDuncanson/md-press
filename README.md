@@ -28,7 +28,7 @@ jobs:
       name: github-pages
       url: ${{ steps.md-press.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: alDuncanson/md-press@v0.1.6
         id: md-press
 ```
