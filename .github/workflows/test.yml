@@ -21,11 +21,12 @@ jobs:
           cat > test.md << EOF
           ---
           geometry: margin=0.75in
+          description: Test build for md-press
           header-includes: |
             \pagenumbering{gobble}
           ---
 
-          # Test Document
+          # Test Document & Notes
 
           This is a test document generated from branch \`${HEAD_REF}\` on PR #${PR_NUMBER}.
 
@@ -50,7 +51,7 @@ jobs:
         id: test
         with:
           source: test.md
-          deploy: 'false'
+          # deploy defaults to auto, which builds a preview on pull requests
           artifact-name: test-output-single
 
       - name: Verify single-file output
@@ -68,6 +69,11 @@ jobs:
           OG_IMAGE="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/document.png"
           grep -qF "<meta property=\"og:image\" content=\"${OG_IMAGE}\">" "$HTML" \
             || (echo "Missing og:image ${OG_IMAGE}" && grep og: "$HTML" && exit 1)
+
+          # Title comes from the first heading, description from frontmatter
+          grep -qF '<title>Test Document &amp; Notes</title>' "$HTML" || (echo "Wrong <title>" && grep '<title>' "$HTML" && exit 1)
+          grep -qF '<meta property="og:title" content="Test Document &amp; Notes">' "$HTML" || (echo "Wrong og:title" && grep og: "$HTML" && exit 1)
+          grep -qF '<meta property="og:description" content="Test build for md-press">' "$HTML" || (echo "Missing og:description" && exit 1)
 
   test-combined:
     runs-on: ubuntu-latest
@@ -176,6 +182,10 @@ jobs:
           EOF
 
           cat > job-docs/cover-letter.md << 'EOF'
+          ---
+          title: Cover Letter for Acme
+          ---
+
           # Cover Letter
 
           Dear Hiring Manager,
@@ -228,6 +238,12 @@ jobs:
 
           # Verify index links to PDFs
           grep -q 'resume.pdf' _site/index.html || (echo "Missing PDF link in index" && exit 1)
+
+          # Verify per-page titles and share-card URLs
+          grep -qF '<title>John Doe - Resume</title>' _site/job-docs/resume.html || (echo "Wrong resume title" && exit 1)
+          grep -qF '<title>Cover Letter for Acme</title>' _site/job-docs/cover-letter.html || (echo "Frontmatter title not used" && exit 1)
+          grep -qE 'og:url" content="https://[^"]+/job-docs/resume\.html"' _site/job-docs/resume.html || (echo "Wrong og:url" && grep og: _site/job-docs/resume.html && exit 1)
+          grep -qE 'og:image" content="https://[^"]+/job-docs/cover-letter\.png"' _site/index.html || (echo "Index should use the first document's preview" && grep og: _site/index.html && exit 1)
 
           echo "All collection flat mode checks passed!"
 
