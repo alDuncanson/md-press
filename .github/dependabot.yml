@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # Covers .github/workflows/ and the root action.yml
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
