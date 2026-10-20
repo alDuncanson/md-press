@@ -337,3 +337,32 @@ jobs:
         run: |
           [ "$OUTCOME" = "failure" ] || (echo "Expected failure, got: $OUTCOME" && exit 1)
           ! command -v pandoc || (echo "pandoc was installed; the source check should run first" && exit 1)
+
+  test-unusual-names:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create a source file with shell metacharacters in its name
+        run: |
+          printf '# Unusual Names\n\nInputs reach scripts as data, not code.\n' > "it's \$(echo x).md"
+          ls -la
+
+      - uses: ./
+        id: unusual
+        with:
+          source: "it's $(echo x).md"
+          output-pdf: my notes.pdf
+          deploy: 'false'
+          artifact-name: test-output-unusual
+          pr-comment: 'false'
+
+      - name: Verify output
+        env:
+          PDF: ${{ steps.unusual.outputs.pdf }}
+          PREVIEW: ${{ steps.unusual.outputs.preview }}
+        run: |
+          [ "$PDF" = "_site/my notes.pdf" ] || (echo "Unexpected pdf output: $PDF" && exit 1)
+          [ "$PREVIEW" = "_site/my notes.png" ] || (echo "Unexpected preview output: $PREVIEW" && exit 1)
+          test -f "$PDF" && test -f "$PREVIEW" && test -f _site/index.html
+          grep -qF '<title>Unusual Names</title>' _site/index.html
