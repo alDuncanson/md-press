@@ -11,11 +11,14 @@ jobs:
   test-single-file:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create test markdown
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          cat > test.md << 'EOF'
+          cat > test.md << EOF
           ---
           geometry: margin=0.75in
           header-includes: |
@@ -24,7 +27,7 @@ jobs:
 
           # Test Document
 
-          This is a test document generated from branch `${{ github.head_ref }}` on PR #${{ github.event.pull_request.number }}.
+          This is a test document generated from branch \`${HEAD_REF}\` on PR #${PR_NUMBER}.
 
           ## Features Being Tested
 
@@ -34,7 +37,7 @@ jobs:
 
           ## Sample Content
 
-          Here's some **bold text**, *italic text*, and `inline code`.
+          Here's some **bold text**, *italic text*, and \`inline code\`.
 
           > A blockquote to test formatting.
 
@@ -50,10 +53,26 @@ jobs:
           deploy: 'false'
           artifact-name: test-output-single
 
+      - name: Verify single-file output
+        env:
+          PDF: ${{ steps.test.outputs.pdf }}
+          HTML: ${{ steps.test.outputs.html }}
+          PREVIEW: ${{ steps.test.outputs.preview }}
+        run: |
+          [ "$PDF" = "_site/document.pdf" ] || (echo "Unexpected pdf output: $PDF" && exit 1)
+          [ "$HTML" = "_site/index.html" ] || (echo "Unexpected html output: $HTML" && exit 1)
+          [ "$PREVIEW" = "_site/document.png" ] || (echo "Unexpected preview output: $PREVIEW" && exit 1)
+          test -f "$PDF" && test -f "$HTML" && test -f "$PREVIEW"
+
+          # This repository has no Pages site, so the default project URL is used
+          OG_IMAGE="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/document.png"
+          grep -qF "<meta property=\"og:image\" content=\"${OG_IMAGE}\">" "$HTML" \
+            || (echo "Missing og:image ${OG_IMAGE}" && grep og: "$HTML" && exit 1)
+
   test-combined:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create test markdown files
         run: |
@@ -139,7 +158,7 @@ jobs:
   test-collection-flat:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create flat collection of unrelated documents
         run: |
@@ -215,7 +234,7 @@ jobs:
   test-collection-nested:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create nested collection of documents
         run: |

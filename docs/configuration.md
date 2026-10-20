@@ -15,7 +15,7 @@
 | `deploy` | Whether to deploy to GitHub Pages | `true` |
 | `artifact-name` | Name of the site artifact uploaded when `deploy` is false | `md-press-site` |
 | `pr-comment` | Comment on pull requests with links to the preview artifacts | `true` |
-| `github-token` | Token used to comment on pull requests | `github.token` |
+| `github-token` | Token used to read the GitHub Pages URL and comment on pull requests | `github.token` |
 
 ## Outputs
 
@@ -31,7 +31,7 @@
 By default, `md-press` converts a single Markdown file. Override the source and output names as needed:
 
 ```yaml
-- uses: alDuncanson/md-press@v1
+- uses: alDuncanson/md-press@v0.1.6
   with:
     source: essay.md
     output-pdf: essay.pdf
@@ -42,7 +42,7 @@ By default, `md-press` converts a single Markdown file. Override the source and 
 Use the `sources` input with glob patterns to publish multiple documents:
 
 ```yaml
-- uses: alDuncanson/md-press@v1
+- uses: alDuncanson/md-press@v0.1.6
   with:
     sources: |
       docs/**/*.md
@@ -63,7 +63,7 @@ The `mode` input controls PDF generation:
 - **`collection`**: Each document gets its own PDF, with download links on the index page
 
 ```yaml
-- uses: alDuncanson/md-press@v1
+- uses: alDuncanson/md-press@v0.1.6
   with:
     sources: chapters/*.md
     mode: collection
@@ -102,7 +102,7 @@ These are passed directly to the PDF engine, so any valid LaTeX variable works.
 To generate files without deploying to GitHub Pages (useful for downloading artifacts or custom deployment):
 
 ```yaml
-- uses: alDuncanson/md-press@v1
+- uses: alDuncanson/md-press@v0.1.6
   with:
     deploy: false
 ```
@@ -143,8 +143,8 @@ jobs:
       name: ${{ github.event_name != 'pull_request' && 'github-pages' || '' }}
       url: ${{ steps.md-press.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: alDuncanson/md-press@v1
+      - uses: actions/checkout@v7
+      - uses: alDuncanson/md-press@v0.1.6
         id: md-press
         with:
           deploy: ${{ github.event_name != 'pull_request' }}
