@@ -95,7 +95,7 @@ runs:
       run: |
         # Prefer the configured Pages URL, which includes custom domains.
         # Reading it needs the pages permission, so fall back to the default URL.
-        BASE_URL=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .html_url 2>/dev/null || true)
+        BASE_URL=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .html_url 2>/dev/null) || BASE_URL=""
 
         if [ -z "$BASE_URL" ]; then
           OWNER="${GITHUB_REPOSITORY_OWNER,,}"
