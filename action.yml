@@ -50,6 +50,10 @@ inputs:
     description: 'When not deploying on a pull_request event, post or update a comment linking to the preview artifacts. Requires the pull-requests: write permission.'
     required: false
     default: 'true'
+  pandoc-version:
+    description: 'pandoc release to install, from https://github.com/jgm/pandoc/releases'
+    required: false
+    default: '3.12.1'
   github-token:
     description: 'Token used to read the GitHub Pages URL and comment on pull requests'
     required: false
@@ -102,9 +106,21 @@ runs:
 
     - name: Install pandoc and poppler-utils
       shell: bash
+      env:
+        PANDOC_VERSION: ${{ inputs.pandoc-version }}
       run: |
-        sudo apt-get update
-        sudo apt-get install -y pandoc poppler-utils
+        set -euo pipefail
+
+        # Install a pinned pandoc release so output doesn't change with the runner image
+        DEB="pandoc-${PANDOC_VERSION}-1-$(dpkg --print-architecture).deb"
+        curl -fsSL --retry 3 -o "$RUNNER_TEMP/$DEB" \
+          "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/${DEB}"
+        sudo dpkg -i "$RUNNER_TEMP/$DEB"
+        pandoc --version | head -n1
+
+        # The runner's package index is usually fresh enough; refresh it only if needed
+        sudo apt-get install -y poppler-utils \
+          || { sudo apt-get update && sudo apt-get install -y poppler-utils; }
 
     - name: Restore tectonic package cache
       uses: actions/cache@v6
