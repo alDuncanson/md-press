@@ -109,7 +109,7 @@ runs:
     - name: Restore tectonic package cache
       uses: actions/cache@v6
       with:
-        path: ~/.cache/Tectonic
+        path: ${{ runner.temp }}/md-press-tectonic
         # A new cache is saved when Markdown changes; restore-keys reuses the latest
         key: md-press-tectonic-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.md') }}
         restore-keys: |
@@ -191,6 +191,7 @@ runs:
       if: ${{ inputs.sources == '' }}
       shell: bash
       env:
+        TECTONIC_CACHE_DIR: ${{ runner.temp }}/md-press-tectonic
         SOURCE: ${{ inputs.source }}
         PDF: _site/${{ inputs.output-pdf }}
       run: |
@@ -203,6 +204,7 @@ runs:
       if: ${{ inputs.sources != '' && inputs.mode == 'combined' }}
       shell: bash
       env:
+        TECTONIC_CACHE_DIR: ${{ runner.temp }}/md-press-tectonic
         PDF: _site/${{ inputs.output-pdf }}
       run: |
         set -euo pipefail
@@ -227,6 +229,8 @@ runs:
     - name: Generate PDFs (multi-file mode, collection)
       if: ${{ inputs.sources != '' && inputs.mode == 'collection' }}
       shell: bash
+      env:
+        TECTONIC_CACHE_DIR: ${{ runner.temp }}/md-press-tectonic
       run: |
         set -euo pipefail
 
