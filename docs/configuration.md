@@ -12,8 +12,8 @@
 | `preview-dpi` | Preview image resolution in DPI | `150` |
 | `mode` | Multi-file mode: `combined` (single PDF) or `collection` (separate PDFs) | `combined` |
 | `index-title` | Title for auto-generated index page (multi-file mode) | `Index` |
-| `deploy` | Whether to deploy to GitHub Pages | `true` |
-| `artifact-name` | Name of the site artifact uploaded when `deploy` is false | `md-press-site` |
+| `deploy` | `auto` deploys to GitHub Pages except on pull requests, which build a preview; `true` or `false` forces it | `auto` |
+| `artifact-name` | Name of the site artifact uploaded when not deploying | `md-press-site` |
 | `pr-comment` | Comment on pull requests with links to the preview artifacts | `true` |
 | `github-token` | Token used to read the GitHub Pages URL and comment on pull requests | `github.token` |
 
@@ -31,7 +31,7 @@
 By default, `md-press` converts a single Markdown file. Override the source and output names as needed:
 
 ```yaml
-- uses: alDuncanson/md-press@v0.2.0
+- uses: alDuncanson/md-press@v0.3.0
   with:
     source: essay.md
     output-pdf: essay.pdf
@@ -42,7 +42,7 @@ By default, `md-press` converts a single Markdown file. Override the source and 
 Use the `sources` input with glob patterns to publish multiple documents:
 
 ```yaml
-- uses: alDuncanson/md-press@v0.2.0
+- uses: alDuncanson/md-press@v0.3.0
   with:
     sources: |
       docs/**/*.md
@@ -63,7 +63,7 @@ The `mode` input controls PDF generation:
 - **`collection`**: Each document gets its own PDF, with download links on the index page
 
 ```yaml
-- uses: alDuncanson/md-press@v0.2.0
+- uses: alDuncanson/md-press@v0.3.0
   with:
     sources: chapters/*.md
     mode: collection
@@ -95,14 +95,34 @@ Common options:
 | `documentclass` | `article`, `report` | LaTeX document class |
 | `header-includes` | `\pagenumbering{gobble}` | Raw LaTeX in the preamble |
 
-These are passed directly to the PDF engine, so any valid LaTeX variable works.
+These are pandoc variables for its LaTeX template; see pandoc's
+[variables for LaTeX](https://pandoc.org/MANUAL.html#variables-for-latex) for
+the full list.
+
+## Page titles and share cards
+
+Each HTML page gets a `<title>` and OpenGraph tags, so links shared in Slack,
+LinkedIn, or X show a card with the title and preview image. The title comes
+from the frontmatter `title`, then the first `#` heading, then the file name.
+Set `description` in the frontmatter to add a description to the card.
+
+```markdown
+---
+description: Software engineer in Grand Rapids, MI
+---
+
+# Al Duncanson
+```
+
+Setting `title` in the frontmatter also adds a title block to the PDF and HTML,
+so documents that already start with a `#` heading usually leave it unset.
 
 ## Generating without deploying
 
 To generate files without deploying to GitHub Pages (useful for downloading artifacts or custom deployment):
 
 ```yaml
-- uses: alDuncanson/md-press@v0.2.0
+- uses: alDuncanson/md-press@v0.3.0
   with:
     deploy: false
 ```
@@ -114,51 +134,47 @@ uploaded as individual unzipped artifacts that open directly in the browser.
 
 ## Pull request previews
 
-Build on pull requests without deploying, and `md-press` comments on the pull
-request with links to the PDF, HTML, and preview image. The comment is updated
-on each push instead of adding a new one.
+The [quick start](../README.md#quick-start) workflow already builds previews.
+With the default `deploy: auto`, pull requests build the PDF, HTML, and preview
+image without publishing, and `md-press` comments on the pull request with
+links to them. The comment is updated on each push instead of adding a new one.
+
+A workflow needs three things for previews:
+
+- A `pull_request:` trigger.
+- `pull-requests: write` permission, so the action can comment. Without it, or
+  on pull requests from forks, the action logs a warning and the artifacts are
+  still available from the workflow run.
+- An environment name that is empty on pull requests:
+
+  ```yaml
+  environment:
+    name: ${{ github.event_name != 'pull_request' && 'github-pages' || '' }}
+  ```
+
+  The `github-pages` environment only allows deployments from the default
+  branch, so a pull request job that references it fails before it starts.
+
+To keep previews from cancelling or waiting behind a Pages deployment, give
+pull requests their own concurrency group:
 
 ```yaml
-name: Publish
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-  pull-requests: write
-
 concurrency:
   group: ${{ github.event_name == 'pull_request' && format('preview-{0}', github.ref) || 'pages' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    environment:
-      name: ${{ github.event_name != 'pull_request' && 'github-pages' || '' }}
-      url: ${{ steps.md-press.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: alDuncanson/md-press@v0.2.0
-        id: md-press
-        with:
-          deploy: ${{ github.event_name != 'pull_request' }}
 ```
 
-- Pull requests skip the `github-pages` environment, whose deployment branch
-  policy only allows the default branch.
-- Pull requests use their own concurrency group, so a preview never cancels or
-  waits behind a Pages deployment.
-- `pull-requests: write` lets the action comment. Without it, or on pull
-  requests from forks, the action logs a warning and the artifacts are still
-  available from the workflow run.
-- Artifact links require signing in to GitHub and expire with the repository's
-  artifact retention period.
-- If a workflow calls `md-press` more than once, give each call a different
-  `artifact-name` and output filenames, because artifact names must be unique
-  within a workflow run.
+Artifact links require signing in to GitHub and expire with the repository's
+artifact retention period. If a workflow calls `md-press` more than once, give
+each call a different `artifact-name` and output filenames, because artifact
+names must be unique within a workflow run.
+
+## Troubleshooting
+
+- **`Source file 'document.md' was not found`:** add `document.md` to the
+  repository root, or set `source:` to your Markdown file.
+- **`Ensure GitHub Pages has been enabled`:** go to **Settings → Pages** and set
+  **Source** to **GitHub Actions**.
+- **`Branch ... is not allowed to deploy to github-pages`:** the job references
+  the `github-pages` environment on a pull request. Use the environment
+  expression from [pull request previews](#pull-request-previews).

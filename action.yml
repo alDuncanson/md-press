@@ -39,15 +39,15 @@ inputs:
     required: false
     default: 'Index'
   deploy:
-    description: 'Whether to deploy to GitHub Pages (set to false to only generate files)'
+    description: 'Whether to deploy to GitHub Pages: "auto" deploys except on pull_request events, which build a preview instead; "true" or "false" forces it'
     required: false
-    default: 'true'
+    default: 'auto'
   artifact-name:
-    description: 'Name of the workflow artifact containing the generated site, uploaded when deploy is false'
+    description: 'Name of the workflow artifact containing the generated site, uploaded when not deploying'
     required: false
     default: 'md-press-site'
   pr-comment:
-    description: 'When deploy is false on a pull_request event, post or update a comment linking to the preview artifacts. Requires the pull-requests: write permission.'
+    description: 'When not deploying on a pull_request event, post or update a comment linking to the preview artifacts. Requires the pull-requests: write permission.'
     required: false
     default: 'true'
   github-token:
@@ -72,6 +72,23 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Decide whether to deploy
+      id: plan
+      shell: bash
+      env:
+        DEPLOY: ${{ inputs.deploy }}
+      run: |
+        case "$DEPLOY" in
+          auto)
+            if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then DEPLOY=false; else DEPLOY=true; fi ;;
+          true|false) ;;
+          *)
+            echo "::error title=md-press::Invalid deploy input '${DEPLOY}'. Use auto, true, or false."
+            exit 1 ;;
+        esac
+        echo "Deploy: ${DEPLOY}"
+        echo "deploy=${DEPLOY}" >> "$GITHUB_OUTPUT"
+
     - name: Check source file (single-file mode)
       if: ${{ inputs.sources == '' }}
       shell: bash
@@ -210,96 +227,51 @@ runs:
             --lua-filter="${{ github.action_path }}/filters/mdlinks-to-anchors.lua"
         done < /tmp/mdpress_files.txt
 
-    - name: Generate HTML with OpenGraph meta tags (single-file mode)
+    - name: Generate HTML (single-file mode)
       if: ${{ inputs.sources == '' }}
       shell: bash
+      env:
+        SOURCE: ${{ inputs.source }}
+        DEST: _site/${{ inputs.output-html }}
+        BASE_URL: ${{ steps.pages.outputs.base-url }}
+        PREVIEW: ${{ steps.names.outputs.preview }}
       run: |
-        BASE_URL="${{ steps.pages.outputs.base-url }}"
+        "$GITHUB_ACTION_PATH/scripts/render-html.sh" "$SOURCE" "$DEST" "${BASE_URL}/" "${BASE_URL}/${PREVIEW}"
 
-        PREVIEW_URL="${BASE_URL}/${{ steps.names.outputs.preview }}"
-        PAGE_URL="${BASE_URL}/"
-
-        cat > /tmp/og-header.html << 'HEADER_EOF'
-        <meta property="og:type" content="website">
-        HEADER_EOF
-
-        echo "<meta property=\"og:image\" content=\"${PREVIEW_URL}\">" >> /tmp/og-header.html
-        echo "<meta property=\"og:url\" content=\"${PAGE_URL}\">" >> /tmp/og-header.html
-        echo "<meta name=\"twitter:card\" content=\"summary_large_image\">" >> /tmp/og-header.html
-        echo "<meta name=\"twitter:image\" content=\"${PREVIEW_URL}\">" >> /tmp/og-header.html
-
-        pandoc -s "${{ inputs.source }}" -o "_site/${{ inputs.output-html }}" \
-          --include-in-header=/tmp/og-header.html \
-          --lua-filter="${{ github.action_path }}/filters/mdlinks-to-html.lua"
-
-    - name: Generate HTML pages (multi-file combined mode)
-      if: ${{ inputs.sources != '' && inputs.mode == 'combined' }}
+    - name: Generate HTML pages (multi-file mode)
+      if: ${{ inputs.sources != '' }}
       shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        BASE_URL: ${{ steps.pages.outputs.base-url }}
+        PREVIEW: ${{ steps.names.outputs.preview }}
       run: |
         set -euo pipefail
 
-        BASE_URL="${{ steps.pages.outputs.base-url }}"
-
-        PREVIEW_URL="${BASE_URL}/${{ steps.names.outputs.preview }}"
-        PAGE_URL="${BASE_URL}/"
-
-        cat > /tmp/og-header.html << 'HEADER_EOF'
-        <meta property="og:type" content="website">
-        HEADER_EOF
-
-        echo "<meta property=\"og:image\" content=\"${PREVIEW_URL}\">" >> /tmp/og-header.html
-        echo "<meta property=\"og:url\" content=\"${PAGE_URL}\">" >> /tmp/og-header.html
-        echo "<meta name=\"twitter:card\" content=\"summary_large_image\">" >> /tmp/og-header.html
-        echo "<meta name=\"twitter:image\" content=\"${PREVIEW_URL}\">" >> /tmp/og-header.html
-
         while IFS= read -r SRC; do
           REL="${SRC#./}"
-          DEST="_site/${REL%.md}.html"
-          mkdir -p "$(dirname "$DEST")"
-
-          echo "Converting $SRC -> $DEST"
-          pandoc -s "$SRC" -o "$DEST" \
-            --include-in-header=/tmp/og-header.html \
-            --lua-filter="${{ github.action_path }}/filters/mdlinks-to-html.lua"
+          if [ "$MODE" = "collection" ]; then
+            IMAGE_URL="${BASE_URL}/${REL%.md}.png"
+          else
+            IMAGE_URL="${BASE_URL}/${PREVIEW}"
+          fi
+          "$GITHUB_ACTION_PATH/scripts/render-html.sh" "$SRC" "_site/${REL%.md}.html" \
+            "${BASE_URL}/${REL%.md}.html" "$IMAGE_URL"
         done < /tmp/mdpress_files.txt
 
-    - name: Generate HTML pages (multi-file collection mode)
-      if: ${{ inputs.sources != '' && inputs.mode == 'collection' }}
+    - name: Generate index page (multi-file mode)
+      if: ${{ inputs.sources != '' }}
       shell: bash
-      run: |
-        set -euo pipefail
-
-        BASE_URL="${{ steps.pages.outputs.base-url }}"
-
-        while IFS= read -r SRC; do
-          REL="${SRC#./}"
-          DEST="_site/${REL%.md}.html"
-          PREVIEW_URL="${BASE_URL}/${REL%.md}.png"
-          PAGE_URL="${BASE_URL}/${REL%.md}.html"
-          mkdir -p "$(dirname "$DEST")"
-
-          cat > /tmp/og-header.html << HEADER_EOF
-        <meta property="og:type" content="website">
-        <meta property="og:image" content="${PREVIEW_URL}">
-        <meta property="og:url" content="${PAGE_URL}">
-        <meta name="twitter:card" content="summary_large_image">
-        <meta name="twitter:image" content="${PREVIEW_URL}">
-        HEADER_EOF
-
-          echo "Converting $SRC -> $DEST"
-          pandoc -s "$SRC" -o "$DEST" \
-            --include-in-header=/tmp/og-header.html \
-            --lua-filter="${{ github.action_path }}/filters/mdlinks-to-html.lua"
-        done < /tmp/mdpress_files.txt
-
-    - name: Generate index page (multi-file mode, combined)
-      if: ${{ inputs.sources != '' && inputs.mode == 'combined' }}
-      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        INDEX_TITLE: ${{ inputs.index-title }}
+        DEST: _site/${{ inputs.output-html }}
+        BASE_URL: ${{ steps.pages.outputs.base-url }}
+        PREVIEW: ${{ steps.names.outputs.preview }}
       run: |
         set -euo pipefail
 
         INDEX_MD=/tmp/mdpress_index.md
-        INDEX_TITLE="${{ inputs.index-title }}"
 
         {
           echo "# ${INDEX_TITLE}"
@@ -316,44 +288,24 @@ runs:
               TITLE="${REL%.md}"
             fi
 
-            echo "- [${TITLE}](${HTML})"
-          done < /tmp/mdpress_files.txt
-        } > "$INDEX_MD"
-
-        pandoc -s "$INDEX_MD" -o "_site/${{ inputs.output-html }}" \
-          --include-in-header=/tmp/og-header.html
-
-    - name: Generate index page (multi-file mode, collection)
-      if: ${{ inputs.sources != '' && inputs.mode == 'collection' }}
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        INDEX_MD=/tmp/mdpress_index.md
-        INDEX_TITLE="${{ inputs.index-title }}"
-
-        {
-          echo "# ${INDEX_TITLE}"
-          echo
-          echo "_Generated by [md-press](https://github.com/alDuncanson/md-press)_"
-          echo
-
-          while IFS= read -r SRC; do
-            REL="${SRC#./}"
-            HTML="${REL%.md}.html"
-            PDF="${REL%.md}.pdf"
-
-            TITLE=$(grep -m1 '^# ' "$SRC" | sed 's/^# //' || true)
-            if [ -z "$TITLE" ]; then
-              TITLE="${REL%.md}"
+            if [ "$MODE" = "collection" ]; then
+              echo "- [${TITLE}](${HTML}) ([PDF](${REL%.md}.pdf))"
+            else
+              echo "- [${TITLE}](${HTML})"
             fi
-
-            echo "- [${TITLE}](${HTML}) ([PDF](${PDF}))"
           done < /tmp/mdpress_files.txt
         } > "$INDEX_MD"
 
-        pandoc -s "$INDEX_MD" -o "_site/${{ inputs.output-html }}" \
-          --include-in-header=/tmp/og-header.html
+        # Collections have no combined preview, so use the first document's
+        if [ "$MODE" = "collection" ]; then
+          FIRST=$(head -n1 /tmp/mdpress_files.txt)
+          FIRST="${FIRST#./}"
+          IMAGE_URL="${BASE_URL}/${FIRST%.md}.png"
+        else
+          IMAGE_URL="${BASE_URL}/${PREVIEW}"
+        fi
+
+        "$GITHUB_ACTION_PATH/scripts/render-html.sh" "$INDEX_MD" "$DEST" "${BASE_URL}/" "$IMAGE_URL"
 
     - name: Generate preview image (single-file or combined mode)
       if: ${{ inputs.sources == '' || inputs.mode == 'combined' }}
@@ -379,7 +331,7 @@ runs:
 
     - name: Upload site artifact
       id: upload-site
-      if: ${{ inputs.deploy != 'true' }}
+      if: ${{ steps.plan.outputs.deploy != 'true' }}
       uses: actions/upload-artifact@v7
       with:
         name: ${{ inputs.artifact-name }}
@@ -389,7 +341,7 @@ runs:
 
     - name: Upload PDF artifact
       id: upload-pdf
-      if: ${{ inputs.deploy != 'true' && (inputs.sources == '' || inputs.mode == 'combined') }}
+      if: ${{ steps.plan.outputs.deploy != 'true' && (inputs.sources == '' || inputs.mode == 'combined') }}
       uses: actions/upload-artifact@v7
       with:
         path: _site/${{ steps.names.outputs.pdf }}
@@ -399,7 +351,7 @@ runs:
 
     - name: Upload HTML artifact
       id: upload-html
-      if: ${{ inputs.deploy != 'true' && inputs.sources == '' }}
+      if: ${{ steps.plan.outputs.deploy != 'true' && inputs.sources == '' }}
       uses: actions/upload-artifact@v7
       with:
         path: _site/${{ inputs.output-html }}
@@ -409,7 +361,7 @@ runs:
 
     - name: Upload preview image artifact
       id: upload-preview
-      if: ${{ inputs.deploy != 'true' && (inputs.sources == '' || inputs.mode == 'combined') }}
+      if: ${{ steps.plan.outputs.deploy != 'true' && (inputs.sources == '' || inputs.mode == 'combined') }}
       uses: actions/upload-artifact@v7
       with:
         path: _site/${{ steps.names.outputs.preview }}
@@ -418,7 +370,7 @@ runs:
         overwrite: true
 
     - name: Comment on pull request
-      if: ${{ inputs.deploy != 'true' && inputs.pr-comment == 'true' && github.event_name == 'pull_request' }}
+      if: ${{ steps.plan.outputs.deploy != 'true' && inputs.pr-comment == 'true' && github.event_name == 'pull_request' }}
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github-token }}
@@ -472,12 +424,12 @@ runs:
         fi
 
     - name: Upload Pages artifact
-      if: ${{ inputs.deploy == 'true' }}
+      if: ${{ steps.plan.outputs.deploy == 'true' }}
       uses: actions/upload-pages-artifact@v5
       with:
         path: _site
 
     - name: Deploy to GitHub Pages
-      if: ${{ inputs.deploy == 'true' }}
+      if: ${{ steps.plan.outputs.deploy == 'true' }}
       id: deploy
       uses: actions/deploy-pages@v5

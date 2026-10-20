@@ -21,30 +21,34 @@ name: Publish
 on:
   push:
     branches: [main]
+  pull_request:
 
 permissions:
   contents: read
   pages: write
   id-token: write
+  pull-requests: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     environment:
-      name: github-pages
+      name: ${{ github.event_name != 'pull_request' && 'github-pages' || '' }}
       url: ${{ steps.md-press.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
-      - uses: alDuncanson/md-press@v0.2.0
+      - uses: alDuncanson/md-press@v0.3.0
         id: md-press
         # with:
         #   source: README.md
 ```
 
 Each push to `main` converts your Markdown into a PDF, an HTML page, and a
-preview image, and publishes them at `https://<owner>.github.io/<repo>/`. To
-check changes before they go live, add
-[pull request previews](docs/configuration.md#pull-request-previews).
+preview image, and publishes them at `https://<owner>.github.io/<repo>/`.
+Pull requests build the same files without publishing, and `md-press` comments
+on the pull request with links to them. See
+[pull request previews](docs/configuration.md#pull-request-previews) for
+details.
 
 See [my resume](https://github.com/alDuncanson/resume) for a single-document
 publishing example, or [essays](https://github.com/alDuncanson/essays) for a

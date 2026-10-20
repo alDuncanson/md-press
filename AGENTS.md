@@ -12,6 +12,7 @@ md-press is a GitHub Action (composite action) that converts Markdown to PDF, HT
 ## Architecture
 
 - `action.yml` — The entire action logic (composite action with bash steps)
+- `scripts/render-html.sh` — Renders one Markdown file to HTML with its page title and OpenGraph tags
 - Uses: pandoc (md→pdf/html), tectonic (LaTeX engine), poppler-utils (pdf→png)
 - Output goes to `_site/` directory, deployed via `actions/deploy-pages`
 
