@@ -65,6 +65,9 @@ jobs:
           [ "$PREVIEW" = "_site/document.png" ] || (echo "Unexpected preview output: $PREVIEW" && exit 1)
           test -f "$PDF" && test -f "$HTML" && test -f "$PREVIEW"
 
+          # The pinned pandoc release is installed, not the runner image's package
+          pandoc --version | head -n1 | grep -qx 'pandoc 3.12.1' || (pandoc --version | head -n1 && exit 1)
+
           # This repository has no Pages site, so the default project URL is used
           OG_IMAGE="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/document.png"
           grep -qF "<meta property=\"og:image\" content=\"${OG_IMAGE}\">" "$HTML" \

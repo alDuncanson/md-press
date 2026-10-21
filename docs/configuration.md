@@ -15,6 +15,7 @@
 | `deploy` | `auto` deploys to GitHub Pages except on pull requests, which build a preview; `true` or `false` forces it | `auto` |
 | `artifact-name` | Name of the site artifact uploaded when not deploying | `md-press-site` |
 | `pr-comment` | Comment on pull requests with links to the preview artifacts | `true` |
+| `pandoc-version` | [pandoc release](https://github.com/jgm/pandoc/releases) to install | `3.12.1` |
 | `github-token` | Token used to read the GitHub Pages URL and comment on pull requests | `github.token` |
 
 ## Outputs
