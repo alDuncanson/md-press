@@ -151,14 +151,16 @@ runs:
     - name: Resolve source files (multi-file mode)
       if: ${{ inputs.sources != '' }}
       shell: bash
+      env:
+        SOURCES: ${{ inputs.sources }}
       run: |
         set -euo pipefail
         shopt -s globstar nullglob
 
-        SOURCES_STR="${{ inputs.sources }}"
         FILES=()
 
-        for pattern in $SOURCES_STR; do
+        # Word splitting and globbing are intentional: SOURCES is a list of patterns
+        for pattern in $SOURCES; do
           for f in $pattern; do
             [ -f "$f" ] || continue
             FILES+=("$f")
@@ -166,12 +168,11 @@ runs:
         done
 
         if [ ${#FILES[@]} -eq 0 ]; then
-          echo "::error::No source files matched patterns: $SOURCES_STR"
+          echo "::error title=md-press::No source files matched patterns: ${SOURCES}"
           exit 1
         fi
 
-        IFS=$'\n' FILES=($(printf '%s\n' "${FILES[@]}" | sort -Vu))
-        unset IFS
+        mapfile -t FILES < <(printf '%s\n' "${FILES[@]}" | sort -Vu)
 
         printf '%s\n' "${FILES[@]}" > /tmp/mdpress_files.txt
         echo "Found ${#FILES[@]} source file(s):"
@@ -180,15 +181,20 @@ runs:
     - name: Generate PDF (single-file mode)
       if: ${{ inputs.sources == '' }}
       shell: bash
+      env:
+        SOURCE: ${{ inputs.source }}
+        PDF: _site/${{ inputs.output-pdf }}
       run: |
-        pandoc "${{ inputs.source }}" \
-          -o "_site/${{ inputs.output-pdf }}" \
+        pandoc "$SOURCE" \
+          -o "$PDF" \
           --pdf-engine tectonic \
-          --lua-filter="${{ github.action_path }}/filters/mdlinks-to-anchors.lua"
+          --lua-filter="$GITHUB_ACTION_PATH/filters/mdlinks-to-anchors.lua"
 
     - name: Generate PDF (multi-file mode, combined)
       if: ${{ inputs.sources != '' && inputs.mode == 'combined' }}
       shell: bash
+      env:
+        PDF: _site/${{ inputs.output-pdf }}
       run: |
         set -euo pipefail
         mapfile -t FILES < /tmp/mdpress_files.txt
@@ -205,9 +211,9 @@ runs:
         done
 
         pandoc "$COMBINED" \
-          -o "_site/${{ inputs.output-pdf }}" \
+          -o "$PDF" \
           --pdf-engine tectonic \
-          --lua-filter="${{ github.action_path }}/filters/mdlinks-to-anchors.lua"
+          --lua-filter="$GITHUB_ACTION_PATH/filters/mdlinks-to-anchors.lua"
 
     - name: Generate PDFs (multi-file mode, collection)
       if: ${{ inputs.sources != '' && inputs.mode == 'collection' }}
@@ -224,7 +230,7 @@ runs:
           pandoc "$SRC" \
             -o "$PDF_DEST" \
             --pdf-engine tectonic \
-            --lua-filter="${{ github.action_path }}/filters/mdlinks-to-anchors.lua"
+            --lua-filter="$GITHUB_ACTION_PATH/filters/mdlinks-to-anchors.lua"
         done < /tmp/mdpress_files.txt
 
     - name: Generate HTML (single-file mode)
@@ -310,13 +316,18 @@ runs:
     - name: Generate preview image (single-file or combined mode)
       if: ${{ inputs.sources == '' || inputs.mode == 'combined' }}
       shell: bash
+      env:
+        PDF: _site/${{ steps.names.outputs.pdf }}
+        PREVIEW: _site/${{ steps.names.outputs.preview }}
+        DPI: ${{ inputs.preview-dpi }}
       run: |
-        PREVIEW="_site/${{ steps.names.outputs.preview }}"
-        pdftoppm "_site/${{ steps.names.outputs.pdf }}" "${PREVIEW%.png}" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}
+        pdftoppm "$PDF" "${PREVIEW%.png}" -png -singlefile -rx "$DPI" -ry "$DPI"
 
     - name: Generate preview images (collection mode)
       if: ${{ inputs.sources != '' && inputs.mode == 'collection' }}
       shell: bash
+      env:
+        DPI: ${{ inputs.preview-dpi }}
       run: |
         set -euo pipefail
 
@@ -326,7 +337,7 @@ runs:
           PREVIEW="_site/${REL%.md}"
 
           echo "Generating preview for $PDF"
-          pdftoppm "$PDF" "$PREVIEW" -png -singlefile -rx ${{ inputs.preview-dpi }} -ry ${{ inputs.preview-dpi }}
+          pdftoppm "$PDF" "$PREVIEW" -png -singlefile -rx "$DPI" -ry "$DPI"
         done < /tmp/mdpress_files.txt
 
     - name: Upload site artifact
