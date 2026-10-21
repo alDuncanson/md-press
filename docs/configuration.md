@@ -32,7 +32,7 @@
 By default, `md-press` converts a single Markdown file. Override the source and output names as needed:
 
 ```yaml
-- uses: alDuncanson/md-press@v0.3.0
+- uses: alDuncanson/md-press@v0.4.0
   with:
     source: essay.md
     output-pdf: essay.pdf
@@ -43,7 +43,7 @@ By default, `md-press` converts a single Markdown file. Override the source and 
 Use the `sources` input with glob patterns to publish multiple documents:
 
 ```yaml
-- uses: alDuncanson/md-press@v0.3.0
+- uses: alDuncanson/md-press@v0.4.0
   with:
     sources: |
       docs/**/*.md
@@ -64,7 +64,7 @@ The `mode` input controls PDF generation:
 - **`collection`**: Each document gets its own PDF, with download links on the index page
 
 ```yaml
-- uses: alDuncanson/md-press@v0.3.0
+- uses: alDuncanson/md-press@v0.4.0
   with:
     sources: chapters/*.md
     mode: collection
@@ -123,7 +123,7 @@ so documents that already start with a `#` heading usually leave it unset.
 To generate files without deploying to GitHub Pages (useful for downloading artifacts or custom deployment):
 
 ```yaml
-- uses: alDuncanson/md-press@v0.3.0
+- uses: alDuncanson/md-press@v0.4.0
   with:
     deploy: false
 ```
