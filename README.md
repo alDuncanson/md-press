@@ -38,7 +38,7 @@ jobs:
       url: ${{ steps.md-press.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
-      - uses: alDuncanson/md-press@v0.4.0
+      - uses: alDuncanson/md-press@v0.5.0
         id: md-press
         with:
           source: document.md
