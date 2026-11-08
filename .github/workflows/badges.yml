@@ -1,0 +1,37 @@
+name: Badges
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Render badges
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/badges
+          release=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          license=$(head -n1 LICENSE | cut -d' ' -f1)
+          python3 scripts/badge.py release "$release" blue > /tmp/badges/release.svg
+          python3 scripts/badge.py Marketplace md-press blue > /tmp/badges/marketplace.svg
+          python3 scripts/badge.py license "$license" blue > /tmp/badges/license.svg
+
+      - name: Publish to badges branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan badges
+          git rm -rf --quiet .
+          cp /tmp/badges/*.svg .
+          git add ./*.svg
+          git commit -m "chore: update badges"
+          git push --force origin badges
