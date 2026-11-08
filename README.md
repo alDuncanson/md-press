@@ -3,7 +3,7 @@
 [![Release Workflow](https://github.com/alDuncanson/md-press/actions/workflows/release.yml/badge.svg)](https://github.com/alDuncanson/md-press/actions/workflows/release.yml)
 [![Latest Release](https://img.shields.io/github/v/release/alDuncanson/md-press)](https://github.com/alDuncanson/md-press/releases)
 [![GitHub Marketplace](https://img.shields.io/badge/Marketplace-md--press-blue?logo=github)](https://github.com/marketplace/actions/md-press)
-[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Socket](https://badge.socket.dev/actions/package/alduncanson/md-press)](https://socket.dev/actions/package/alduncanson/md-press)
 
 Publish Markdown documents for free with `md-press`.
