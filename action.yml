@@ -76,6 +76,36 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Validate inputs
+      shell: bash
+      env:
+        SOURCE: ${{ inputs.source }}
+        SOURCES: ${{ inputs.sources }}
+        OUTPUT_PDF: ${{ inputs.output-pdf }}
+        OUTPUT_HTML: ${{ inputs.output-html }}
+        OUTPUT_PREVIEW: ${{ inputs.output-preview }}
+        PREVIEW_DPI: ${{ inputs.preview-dpi }}
+        MODE: ${{ inputs.mode }}
+        INDEX_TITLE: ${{ inputs.index-title }}
+        ARTIFACT_NAME: ${{ inputs.artifact-name }}
+        PANDOC_VERSION: ${{ inputs.pandoc-version }}
+      run: |
+        fail() { echo "::error title=md-press::Invalid '$1' input: $2."; exit 1; }
+        one_line() { if [[ $2 == *$'\n'* || $2 == *$'\r'* ]]; then fail "$1" "must be a single line"; fi; }
+        not_option() { if [[ $2 == -* ]]; then fail "$1" "must not start with '-'"; fi; }
+        inside_site() { if [[ $2 == /* || $2 == ../* || $2 == */../* || $2 == */.. ]]; then fail "$1" "must stay inside the site directory"; fi; }
+
+        one_line source "$SOURCE";          not_option source "$SOURCE"
+        one_line sources "$SOURCES"
+        one_line output-pdf "$OUTPUT_PDF";  not_option output-pdf "$OUTPUT_PDF";  inside_site output-pdf "$OUTPUT_PDF"
+        one_line output-html "$OUTPUT_HTML"; not_option output-html "$OUTPUT_HTML"; inside_site output-html "$OUTPUT_HTML"
+        one_line output-preview "$OUTPUT_PREVIEW"; not_option output-preview "$OUTPUT_PREVIEW"; inside_site output-preview "$OUTPUT_PREVIEW"
+        one_line index-title "$INDEX_TITLE"
+        one_line artifact-name "$ARTIFACT_NAME"
+        if [[ $MODE != combined && $MODE != collection ]]; then fail mode "use combined or collection"; fi
+        if [[ ! $PREVIEW_DPI =~ ^[0-9]+$ ]]; then fail preview-dpi "must be a whole number"; fi
+        if [[ ! $PANDOC_VERSION =~ ^[0-9]+(\.[0-9]+){1,3}$ ]]; then fail pandoc-version "must be a pandoc release number such as 3.12.1"; fi
+
     - name: Decide whether to deploy
       id: plan
       shell: bash
